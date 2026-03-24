@@ -1,0 +1,5 @@
+mcp
+google-cloud-run
+google-cloud-monitoring
+google-cloud-storage
+pydantic>=2.0

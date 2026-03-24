@@ -1,0 +1,5 @@
+mcp
+google-cloud-logging
+google-cloud-monitoring
+vllm
+pydantic>=2.0

@@ -1,0 +1,4 @@
+mcp
+google-cloud-run
+google-cloud-workflows
+google-cloud-storage
