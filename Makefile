@@ -1,4 +1,12 @@
-SUBDIRS = hybrid-inference-orchestrator serverless-vllm-manager keras-tpu-gpu-pipeline tpu-performance-analyst xla-cross-hardware-profiler autoresearch-serverless-manager
+SUBDIRS = hybrid-inference-orchestrator \
+          serverless-vllm-manager \
+          keras-tpu-gpu-pipeline \
+          tpu-performance-analyst \
+          xla-cross-hardware-profiler \
+          autoresearch-serverless-manager \
+          self-hosted-vllm-devops-agent \
+          devops-model-garden-agent \
+          self-hosted-llm-gateway
 
 install-all:
 	for dir in $(SUBDIRS); do \

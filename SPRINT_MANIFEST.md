@@ -1,6 +1,6 @@
 # TPU Sprint MCP Toolkit: Final Manifest 🚀
 
-This toolkit provides a suite of 6 **Model Context Protocol (MCP)** servers designed to accelerate development and optimization for the **TPU Sprint**.
+This toolkit provides a suite of 9 **Model Context Protocol (MCP)** servers designed to accelerate development and optimization for the **TPU Sprint**.
 
 ## 📦 Project Structure
 
@@ -34,13 +34,28 @@ This toolkit provides a suite of 6 **Model Context Protocol (MCP)** servers desi
 *   **Demo:** An AI agent (Gemini) optimizing JAX code for XLA fusion on serverless GPUs.
 *   **Key Tech:** `Cloud Run Jobs`, `Cloud Workflows`, `Gemini`.
 
+### 7. [Self-Hosted LLM Gateway](./self-hosted-llm-gateway)
+*   **Concept:** Proxy for self-hosted models (Llama 3, Gemma) on Cloud Run.
+*   **Demo:** Routing Gemini CLI queries to a local vLLM instance.
+*   **Key Tech:** `LiteLLM`, `vLLM`, `FastAPI`.
+
+### 8. [DevOps/SRE Model Garden Agent](./devops-model-garden-agent)
+*   **Concept:** Infrastructure troubleshooting using Vertex AI Model Garden.
+*   **Demo:** Analyzing Cloud Logging errors with managed Gemma endpoints.
+*   **Key Tech:** `Vertex AI SDK`, `Gemma`, `Cloud Logging`.
+
+### 9. [Self-Hosted vLLM DevOps Agent](./self-hosted-vllm-devops-agent)
+*   **Concept:** SRE assistant using self-hosted vLLM on Cloud Run GPU.
+*   **Demo:** Analyzing Cloud Logging errors using a private Gemma endpoint on L4 GPUs.
+*   **Key Tech:** `vLLM`, `Cloud Run GPU`, `Cloud Logging`.
+
 ---
 
 ## 🛠 Management
 *   **Global Makefile:** 
     *   `make install-all`: Install all dependencies.
     *   `make test-all`: Run all validation scripts.
-    *   `make demo-all`: Execute all 6 Grand Demos.
+    *   `make demo-all`: Execute all 7 Grand Demos.
 *   **Unified README:** Comprehensive guide for the AI GDE community.
 
 ---

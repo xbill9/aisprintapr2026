@@ -1,6 +1,6 @@
 # TPU Sprint MCP Toolkit 🚀
 
-Welcome to the **TPU Sprint MCP Toolkit**! This repository is a collection of five specialized **Model Context Protocol (MCP)** servers designed to accelerate development, optimization, and deployment on **Cloud TPUs** and **Serverless GPUs (Cloud Run L4)**.
+Welcome to the **TPU Sprint MCP Toolkit**! This repository is a collection of **nine specialized Model Context Protocol (MCP)** servers designed to accelerate development, optimization, and deployment on **Cloud TPUs** and **Serverless GPUs (Cloud Run L4)**.
 
 Built with **FastMCP (Python)**, these tools give LLMs (like Gemini) "eyes and hands" to manage high-performance AI infrastructure.
 
@@ -37,6 +37,21 @@ Built with **FastMCP (Python)**, these tools give LLMs (like Gemini) "eyes and h
 *   **Focus:** Automating the Karpathy "research loop" on Google Cloud Serverless.
 *   **Key Tools:** `submit_research_job`, `monitor_research_workflow`, `analyze_research_costs`.
 *   **Use Case:** Running autonomous ML research experiments (like XLA optimization) for ~$2/hour using serverless GPUs.
+
+### 7. [DevOps Model Garden Agent](./devops-model-garden-agent)
+*   **Focus:** Enterprise-grade SRE automation using Gemma on Vertex AI Model Garden.
+*   **Key Tools:** `analyze_cloud_logging`, `suggest_sre_remediation`, `deploy_gemma_to_cloud_run`.
+*   **Use Case:** Securely troubleshooting GCP infrastructure using managed Gemma endpoints.
+
+### 8. [Self-Hosted LLM Gateway](./self-hosted-llm-gateway)
+*   **Focus:** Unified proxy for self-hosted open-weight models on serverless GPUs.
+*   **Key Tools:** `query_local_llm`, `switch_model_backend`, `get_gateway_metrics`.
+*   **Use Case:** Routing between local specialized models (Llama, Mixtral) and orchestration LLMs.
+
+### 9. [Self-Hosted vLLM DevOps Agent](./self-hosted-vllm-devops-agent)
+*   **Focus:** Private DevOps assistant leveraging vLLM on Cloud Run GPU.
+*   **Key Tools:** `get_vllm_deployment_config`, `get_vertex_ai_model_copy_instructions`, `analyze_cloud_logging`.
+*   **Use Case:** Running a fully private SRE loop with Gemma models without external API dependencies.
 
 ---
 

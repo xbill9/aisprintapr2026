@@ -1,0 +1,27 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Misc
+.env
+.venv/
+venv/
+*.swp
+*.bak
+level_3-lightsail/.aws_creds
+level_3-fargate/.aws_creds
+adkui-lightsail/.aws_creds
+adkui-fargate/.aws_creds
+level_3-lightsail/.requirements_installed
+level_3-fargate/task-definition.json

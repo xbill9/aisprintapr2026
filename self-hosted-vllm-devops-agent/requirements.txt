@@ -1,0 +1,10 @@
+mcp
+fastmcp
+google-cloud-logging
+requests
+python-dotenv
+google-adk
+google-cloud-aiplatform
+kaggle
+kagglehub
+google-cloud-storage
