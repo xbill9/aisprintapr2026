@@ -39,12 +39,7 @@ This toolkit provides a suite of 9 **Model Context Protocol (MCP)** servers desi
 *   **Demo:** Routing Gemini CLI queries to a local vLLM instance.
 *   **Key Tech:** `LiteLLM`, `vLLM`, `FastAPI`.
 
-### 8. [DevOps/SRE Model Garden Agent](./devops-model-garden-agent)
-*   **Concept:** Infrastructure troubleshooting using Vertex AI Model Garden.
-*   **Demo:** Analyzing Cloud Logging errors with managed Gemma endpoints.
-*   **Key Tech:** `Vertex AI SDK`, `Gemma`, `Cloud Logging`.
-
-### 9. [Self-Hosted vLLM DevOps Agent](./self-hosted-vllm-devops-agent)
+### 8. [Self-Hosted vLLM DevOps Agent](./self-hosted-vllm-devops-agent)
 *   **Concept:** SRE assistant using self-hosted vLLM on Cloud Run GPU.
 *   **Demo:** Analyzing Cloud Logging errors using a private Gemma endpoint on L4 GPUs.
 *   **Key Tech:** `vLLM`, `Cloud Run GPU`, `Cloud Logging`.

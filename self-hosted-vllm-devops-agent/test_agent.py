@@ -13,6 +13,62 @@ class TestDevOpsAgent(unittest.IsolatedAsyncioTestCase):
         self.assertIn("get_kaggle_model_copy_instructions", tools)
         self.assertIn("list_vertex_models", tools)
         self.assertIn("list_bucket_models", tools)
+        self.assertIn("deploy_vllm", tools)
+        self.assertIn("destroy_vllm", tools)
+
+    @patch("server.subprocess.run")
+    def test_deploy_vllm(self, mock_run):
+        """Test the deploy_vllm tool with mock subprocess."""
+        from server import deploy_vllm
+        
+        # Setup mock behavior
+        mock_result = MagicMock()
+        mock_result.stdout = "Deployment successful"
+        mock_run.return_value = mock_result
+        
+        result = deploy_vllm(service_name="test-service", model_path="test-model", bucket_name="test-bucket")
+        
+        # Verify result
+        self.assertIn("Successfully deployed test-service", result)
+        self.assertIn("Deployment successful", result)
+        
+        # Verify subprocess call
+        args, kwargs = mock_run.call_args
+        cmd = args[0]
+        self.assertEqual(cmd[0], "gcloud")
+        self.assertEqual(cmd[1], "beta")
+        self.assertEqual(cmd[2], "run")
+        self.assertEqual(cmd[3], "deploy")
+        self.assertEqual(cmd[4], "test-service")
+        self.assertIn("--image=vllm/vllm-openai:latest", cmd)
+        self.assertIn("--add-volume=name=model-volume,type=cloud-storage,bucket=test-bucket,readonly=true", cmd)
+        self.assertIn("--args=--model=/mnt/models/test-model,--max-model-len=4096,--trust-remote-code,--gpu-memory-utilization=0.9,--host=0.0.0.0", cmd)
+
+    @patch("server.subprocess.run")
+    def test_destroy_vllm(self, mock_run):
+        """Test the destroy_vllm tool with mock subprocess."""
+        from server import destroy_vllm
+        
+        # Setup mock behavior
+        mock_result = MagicMock()
+        mock_result.stdout = "Deletion successful"
+        mock_run.return_value = mock_result
+        
+        result = destroy_vllm(service_name="test-service")
+        
+        # Verify result
+        self.assertIn("Successfully destroyed test-service", result)
+        self.assertIn("Deletion successful", result)
+        
+        # Verify subprocess call
+        args, kwargs = mock_run.call_args
+        cmd = args[0]
+        self.assertEqual(cmd[0], "gcloud")
+        self.assertEqual(cmd[1], "run")
+        self.assertEqual(cmd[2], "services")
+        self.assertEqual(cmd[3], "delete")
+        self.assertEqual(cmd[4], "test-service")
+        self.assertIn("--quiet", cmd)
 
     async def test_resources_registered(self):
         """Verify that the expected resources are registered with FastMCP."""
