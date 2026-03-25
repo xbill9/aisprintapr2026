@@ -1,17 +1,7 @@
 import os
 import json
 import requests
-from mcp.server.fastmcp import FastMCP
-from google.cloud import logging as cloud_logging
-from typing import Dict, Any, List, Optional
-
-from google.cloud import aiplatform
-from google.cloud import storage
-import kagglehub
-
-import os
-import json
-import requests
+import subprocess
 from mcp.server.fastmcp import FastMCP
 from google.cloud import logging as cloud_logging
 from typing import Dict, Any, List, Optional
@@ -36,7 +26,6 @@ def discover_vllm_url(service_name: str = "vllm-gemma-2b-it") -> str:
     if VLLM_BASE_URL:
         return VLLM_BASE_URL
     
-    import subprocess
     try:
         cmd = [
             "gcloud", "run", "services", "describe", service_name,
@@ -294,6 +283,68 @@ def get_vllm_deployment_config(service_name: str = "vllm-gemma-2b-it", bucket_na
     ]
 
     return " ".join(command)
+
+@mcp.tool()
+def deploy_vllm(service_name: str = "vllm-gemma-2b-it", model_path: str = "gemma-2b-it", bucket_name: str = BUCKET_NAME) -> str:
+    """
+    Deploys vLLM to Cloud Run with GPU.
+    
+    Args:
+        service_name: Name of the service to deploy.
+        model_path: Path to the model in the bucket.
+        bucket_name: GCS bucket name.
+    """
+    cmd = [
+        "gcloud", "beta", "run", "deploy", service_name,
+        f"--project={PROJECT_ID}",
+        "--image=vllm/vllm-openai:latest",
+        "--gpu=1",
+        "--gpu-type=nvidia-l4",
+        "--no-gpu-zonal-redundancy",
+        "--no-cpu-throttling",
+        "--concurrency=4",
+        "--timeout=3600",
+        "--startup-probe=timeoutSeconds=60,periodSeconds=60,failureThreshold=10,initialDelaySeconds=180,httpGet.port=8000,httpGet.path=/health",
+        "--max-instances=1",
+        "--min-instances=0",
+        "--port=8000",
+        "--memory=16Gi",
+        "--cpu=4",
+        "--execution-environment=gen2",
+        f"--add-volume=name=model-volume,type=cloud-storage,bucket={bucket_name},readonly=true",
+        "--add-volume-mount=volume=model-volume,mount-path=/mnt/models",
+        f"--args=--model=/mnt/models/{model_path},--max-model-len=4096,--trust-remote-code,--gpu-memory-utilization=0.9,--host=0.0.0.0",
+        "--no-allow-unauthenticated",
+        f"--region={LOCATION}"
+    ]
+    
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        return f"Successfully deployed {service_name}:\n{result.stdout}"
+    except subprocess.CalledProcessError as e:
+        return f"Failed to deploy {service_name}:\nError: {e.stderr}\nOutput: {e.stdout}"
+
+@mcp.tool()
+def destroy_vllm(service_name: str = "vllm-gemma-2b-it") -> str:
+    """
+    Destroys the Cloud Run vLLM service.
+    
+    Args:
+        service_name: Name of the service to destroy.
+    """
+    cmd = [
+        "gcloud", "run", "services", "delete", service_name,
+        f"--project={PROJECT_ID}",
+        f"--region={LOCATION}",
+        "--quiet"
+    ]
+    
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        return f"Successfully destroyed {service_name}:\n{result.stdout}"
+    except subprocess.CalledProcessError as e:
+        return f"Failed to destroy {service_name}:\nError: {e.stderr}\nOutput: {e.stdout}"
+
 @mcp.tool()
 def get_vllm_tpu_deployment_config(cluster_name: str = "tpu-cluster", model_name: str = "google/gemma-2-9b-it") -> str:
     """

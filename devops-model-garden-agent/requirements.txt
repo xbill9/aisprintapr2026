@@ -1,5 +1,0 @@
-mcp
-fastmcp
-google-cloud-aiplatform
-google-cloud-logging
-python-dotenv

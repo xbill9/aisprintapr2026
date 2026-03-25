@@ -5,7 +5,6 @@ SUBDIRS = hybrid-inference-orchestrator \
           xla-cross-hardware-profiler \
           autoresearch-serverless-manager \
           self-hosted-vllm-devops-agent \
-          devops-model-garden-agent \
           self-hosted-llm-gateway \
           tpu-vllm-strategy-advisor
 
