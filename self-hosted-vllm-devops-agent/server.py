@@ -104,6 +104,16 @@ volumes:
 """
 
 @mcp.tool()
+def get_vllm_endpoint(service_name: str = "vllm-gemma-2b-it") -> str:
+    """
+    Returns the current active vLLM endpoint URL.
+    
+    Args:
+        service_name: The Cloud Run service name to describe (defaults to 'vllm-gemma-2b-it').
+    """
+    return discover_vllm_url(service_name)
+
+@mcp.tool()
 def list_vertex_models() -> str:
     """
     Uses the Vertex AI SDK (part of ADK ecosystem) to list models in the project registry.
