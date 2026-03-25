@@ -6,7 +6,8 @@ SUBDIRS = hybrid-inference-orchestrator \
           autoresearch-serverless-manager \
           self-hosted-vllm-devops-agent \
           devops-model-garden-agent \
-          self-hosted-llm-gateway
+          self-hosted-llm-gateway \
+          tpu-vllm-strategy-advisor
 
 install-all:
 	for dir in $(SUBDIRS); do \

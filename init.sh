@@ -30,6 +30,16 @@ ACTIVE_ACCOUNT=$(gcloud auth list --filter=status:ACTIVE --format="value(account
 gcloud projects add-iam-policy-binding "$PROJECT_ID" --member="user:$ACTIVE_ACCOUNT" --role="roles/logging.admin" --quiet
 gcloud projects add-iam-policy-binding "$PROJECT_ID" --member="user:$ACTIVE_ACCOUNT" --role="roles/storage.admin" --quiet
 
+# Grant Logging Viewer and View Accessor roles to the Default Compute Service Account
+# This allows the Cloud Run service to fetch and analyze logs.
+PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format="value(projectNumber)")
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+    --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+    --role="roles/logging.viewer" --quiet
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+    --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+    --role="roles/logging.viewAccessor" --quiet
+
 # Create Cloud Storage bucket
 gcloud storage buckets create gs://"$PROJECT_ID"-bucket --location=us-east4 || true
 
