@@ -17,8 +17,8 @@ The inference server is deployed on Cloud Run with GPU acceleration and GCS FUSE
 *   **Region:** `us-east4`
 *   **Hardware:** 
     *   **GPU:** 1x NVIDIA L4
-    *   **vCPU:** 8
-    *   **Memory:** 32GiB
+    *   **vCPU:** 4
+    *   **Memory:** 16GiB
 *   **Configuration:**
     *   **Container Port:** `8080`
     *   **Max Model Length:** `4096`
@@ -45,8 +45,8 @@ gcloud beta run deploy vllm-gemma-2b-it \
   --image=vllm/vllm-openai:latest \
   --gpu=1 \
   --gpu-type=nvidia-l4 \
-  --memory=32Gi \
-  --cpu=8 \
+  --memory=16Gi \
+  --cpu=4 \
   --execution-environment=gen2 \
   --add-volume=name=model-volume,type=cloud-storage,bucket=aisprint-491218-bucket,readonly=true \
   --add-volume-mount=volume=model-volume,mount-path=/mnt/models \

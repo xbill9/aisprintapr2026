@@ -9,7 +9,7 @@ To deploy and run this project, you need to address two main components: the **I
 ### 1. Infrastructure Requirements (The Inference Stack)
 The MCP server expects a running vLLM instance. Your Cloud Run deployment for the model needs:
 *   **Hardware:** NVIDIA L4 GPU (1 unit).
-*   **Compute:** Minimum 8 vCPUs and 32GiB RAM.
+*   **Compute:** Minimum 4 vCPUs and 16GiB RAM.
 *   **Execution Environment:** `gen2` (required for GPU and GCS FUSE).
 *   **Storage:** A GCS Bucket containing the Gemma model weights (e.g., `gs://PROJECT_ID-bucket/gemma-2b-it/`).
 *   **Networking:** Private Google Access must be enabled on the VPC subnet if using GCS FUSE.

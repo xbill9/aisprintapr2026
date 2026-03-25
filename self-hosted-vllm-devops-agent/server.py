@@ -81,8 +81,8 @@ image: vllm/vllm-openai:latest
 resources:
   limits:
     nvidia.com/gpu: 1
-    cpu: 8
-    memory: 32Gi
+    cpu: 4
+    memory: 16Gi
 annotations:
   run.googleapis.com/execution-environment: gen2
   run.googleapis.com/gpu-zonal-redundancy-disabled: "true"
@@ -253,8 +253,8 @@ def get_vllm_deployment_config(service_name: str = "vllm-gemma-2b-it", bucket_na
         "--gpu-type=nvidia-l4",
         "--no-gpu-zonal-redundancy", # Fix for quota issues in us-east4
         "--port=8000", # vLLM default port
-        "--memory=32Gi",
-        "--cpu=8",
+        "--memory=16Gi",
+        "--cpu=4",
         "--execution-environment=gen2",
         f"--add-volume=name=model-volume,type=cloud-storage,bucket={bucket_name},readonly=true",
         "--add-volume-mount=volume=model-volume,mount-path=/mnt/models",
