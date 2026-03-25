@@ -9,9 +9,16 @@ from google.cloud import aiplatform
 from google.cloud import storage
 import kagglehub
 
-import google.auth
-import google.auth.transport.requests
-from google.oauth2 import id_token
+import os
+import json
+import requests
+from mcp.server.fastmcp import FastMCP
+from google.cloud import logging as cloud_logging
+from typing import Dict, Any, List, Optional
+
+from google.cloud import aiplatform
+from google.cloud import storage
+import kagglehub
 
 # Initialize FastMCP server
 mcp = FastMCP("Self-Hosted vLLM DevOps Agent")
@@ -23,21 +30,6 @@ BUCKET_NAME = f"{PROJECT_ID}-bucket"
 # The URL of the self-hosted vLLM service on Cloud Run
 VLLM_BASE_URL = os.getenv("VLLM_BASE_URL")
 MODEL_NAME = os.getenv("MODEL_NAME", "google/gemma-2b-it")
-
-def get_auth_headers(url: str) -> Dict[str, str]:
-    """Generates authentication headers for calling Cloud Run."""
-    try:
-        # Remove path to get the base URL for the audience
-        from urllib.parse import urlparse
-        parsed_url = urlparse(url)
-        audience = f"{parsed_url.scheme}://{parsed_url.netloc}"
-        
-        auth_req = google.auth.transport.requests.Request()
-        token = id_token.fetch_id_token(auth_req, audience)
-        return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-    except Exception as e:
-        print(f"⚠️ Could not fetch ID token: {e}")
-        return {"Content-Type": "application/json"}
 
 def discover_vllm_url(service_name: str = "vllm-gemma-2b-it") -> str:
     """Attempts to automatically discover the Cloud Run service URL."""
@@ -86,6 +78,24 @@ resources:
 annotations:
   run.googleapis.com/execution-environment: gen2
   run.googleapis.com/gpu-zonal-redundancy-disabled: "true"
+  run.googleapis.com/cpu-throttling: "false"  # Mandatory for GPU
+  run.googleapis.com/startup-cpu-boost: "true"
+  run.googleapis.com/maxScale: "1"
+container:
+  concurrency: 4
+  timeout: 3600s
+startupProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  initialDelaySeconds: 180
+  periodSeconds: 60
+  failureThreshold: 10
+  timeoutSeconds: 60
+# For gcloud deployment, use:
+# gcloud run deploy vllm-gemma-2b-it --no-cpu-throttling --allow-unauthenticated --concurrency=4 \\
+#   --timeout=3600 --startup-probe=timeoutSeconds=60,periodSeconds=60,failureThreshold=10,initialDelaySeconds=180,httpGet.port=8000,httpGet.path=/health \\
+#   --max-instances=1 --args=--model=/mnt/models/gemma-2b-it,--max-model-len=4096,--trust-remote-code,--gpu-memory-utilization=0.9,--host=0.0.0.0
 volumes:
   - name: model-volume
     cloudStorage:
@@ -160,7 +170,7 @@ async def analyze_cloud_logging(filter_query: str, limit: int = 5) -> str:
         prompt = f"Analyze the following DevOps logs and provide a high-level summary of the critical issues and potential root causes:\n\n{combined_logs}\n\nSummary:"
         
         # Query Self-Hosted vLLM (OpenAI compatible API)
-        headers = get_auth_headers(ACTIVE_VLLM_URL)
+        headers = {"Content-Type": "application/json"}
         response = requests.post(
             f"{ACTIVE_VLLM_URL}/v1/completions",
             headers=headers,
@@ -190,7 +200,7 @@ async def suggest_sre_remediation(error_message: str) -> str:
     prompt = f"As an expert SRE, suggest a 3-step remediation plan for the following error:\n\nError: {error_message}\n\nRemediation Plan:"
     
     try:
-        headers = get_auth_headers(ACTIVE_VLLM_URL)
+        headers = {"Content-Type": "application/json"}
         response = requests.post(
             f"{ACTIVE_VLLM_URL}/v1/completions",
             headers=headers,
@@ -218,7 +228,7 @@ async def query_vllm(prompt: str, max_tokens: int = 512, temperature: float = 0.
         temperature: Sampling temperature (0.0 for deterministic).
     """
     try:
-        headers = get_auth_headers(ACTIVE_VLLM_URL)
+        headers = {"Content-Type": "application/json"}
         response = requests.post(
             f"{ACTIVE_VLLM_URL}/v1/completions",
             headers=headers,
@@ -236,14 +246,17 @@ async def query_vllm(prompt: str, max_tokens: int = 512, temperature: float = 0.
         return f"Error querying vLLM: {str(e)}"
 
 @mcp.tool()
-def get_vllm_deployment_config(service_name: str = "vllm-gemma-2b-it", bucket_name: str = BUCKET_NAME, model_path: str = "gemma-2b-it") -> str:
+def get_vllm_deployment_config(service_name: str = "vllm-gemma-2b-it", bucket_name: str = BUCKET_NAME, model_path: str = "gemma-2b-it", allow_unauthenticated: bool = False, min_instances: int = 0, gpu_memory_utilization: float = 0.9) -> str:
     """
     Generates the gcloud command to deploy vLLM to Cloud Run with GCS FUSE and NVIDIA L4 GPU.
-    
+
     Args:
         service_name: The name for the Cloud Run service.
         bucket_name: The GCS bucket containing the model weights.
         model_path: The sub-path inside the bucket (e.g., 'gemma-2b-it').
+        allow_unauthenticated: Whether to allow unauthenticated access to the service.
+        min_instances: The minimum number of instances to keep warm (default: 0).
+        gpu_memory_utilization: The fraction of GPU memory to use for KV cache (default: 0.9).
     """
     # Note: Private Google Access must be enabled on the VPC subnet for GCS FUSE to work.
     command = [
@@ -252,6 +265,12 @@ def get_vllm_deployment_config(service_name: str = "vllm-gemma-2b-it", bucket_na
         "--gpu=1",
         "--gpu-type=nvidia-l4",
         "--no-gpu-zonal-redundancy", # Fix for quota issues in us-east4
+        "--no-cpu-throttling", # Required for GPU deployment
+        "--concurrency=4", # Optimal for LLM throughput vs latency
+        "--timeout=3600", # 1 hour timeout for long generations
+        "--startup-probe=timeoutSeconds=60,periodSeconds=60,failureThreshold=10,initialDelaySeconds=180,httpGet.port=8000,httpGet.path=/health",
+        "--max-instances=1", # Prevent scaling beyond quota
+        f"--min-instances={min_instances}",
         "--port=8000", # vLLM default port
         "--memory=16Gi",
         "--cpu=4",
@@ -259,12 +278,101 @@ def get_vllm_deployment_config(service_name: str = "vllm-gemma-2b-it", bucket_na
         f"--add-volume=name=model-volume,type=cloud-storage,bucket={bucket_name},readonly=true",
         "--add-volume-mount=volume=model-volume,mount-path=/mnt/models",
         # vLLM arguments passed as comma-separated list
-        f"--args=--model=/mnt/models/{model_path},--max-model-len=4096",
-        "--no-allow-unauthenticated",
+        f"--args=--model=/mnt/models/{model_path},--max-model-len=4096,--trust-remote-code,--gpu-memory-utilization={gpu_memory_utilization},--host=0.0.0.0",
+        "--allow-unauthenticated" if allow_unauthenticated else "--no-allow-unauthenticated",
         f"--region={LOCATION}"
     ]
-    
+
     return " ".join(command)
+@mcp.tool()
+def get_vllm_tpu_deployment_config(cluster_name: str = "tpu-cluster", model_name: str = "google/gemma-2-9b-it") -> str:
+    """
+    Generates a GKE manifest and setup instructions for deploying vLLM on TPU v5e.
+    
+    Args:
+        cluster_name: The name of the GKE cluster.
+        model_name: The model identifier (e.g., 'google/gemma-2-9b-it').
+    """
+    manifest = f"""
+### 🌀 vLLM on TPU v5e (GKE Deployment)
+
+To deploy vLLM on TPUs, use the following GKE manifest. This configuration targets a **TPU v5e-8** (8 chips) which is ideal for Gemma 2 9B or 27B.
+
+#### 1. Create a TPU Node Pool (if not exists)
+```bash
+gcloud container node-pools create tpu-v5e-8 \\
+    --cluster={cluster_name} \\
+    --location={LOCATION} \\
+    --machine-type=ct5lp-hightpu-4t \\
+    --tpu-topology=2x4 \\
+    --num-nodes=1
+```
+
+#### 2. Kubernetes Manifest (vllm-tpu.yaml)
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-tpu
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vllm-tpu
+  template:
+    metadata:
+      labels:
+        app: vllm-tpu
+    spec:
+      nodeSelector:
+        cloud.google.com/gke-tpu-accelerator: tpu-v5-lite-podslice
+        cloud.google.com/gke-tpu-topology: 2x4
+      containers:
+      - name: vllm-tpu
+        image: vllm/vllm-tpu:latest
+        resources:
+          limits:
+            google.com/tpu: "8"
+          requests:
+            google.com/tpu: "8"
+        env:
+        - name: VLLM_XLA_CACHE_PATH
+          value: "/tmp/vllm_xla_cache"
+        command: ["python3", "-m", "vllm.entrypoints.openai.api_server"]
+        args:
+        - "--model={model_name}"
+        - "--tensor-parallel-size=8"
+        - "--max-model-len=8192"
+        ports:
+        - containerPort: 8000
+        volumeMounts:
+        - name: dshm
+          mountPath: /dev/shm
+      volumes:
+      - name: dshm
+        emptyDir:
+          medium: Memory
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-tpu-service
+spec:
+  selector:
+    app: vllm-tpu
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 8000
+  type: ClusterIP
+```
+
+#### 3. Deployment Steps
+1. Save the YAML above to `vllm-tpu.yaml`.
+2. Apply it: `kubectl apply -f vllm-tpu.yaml`.
+3. (Optional) If using a private model, ensure a Hugging Face token is provided via secret.
+"""
+    return manifest
 
 @mcp.tool()
 def get_vertex_ai_model_copy_instructions(model_name: str = "gemma-2b-it") -> str:
