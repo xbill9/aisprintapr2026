@@ -39,6 +39,9 @@ gcloud projects add-iam-policy-binding "$PROJECT_ID" \
 gcloud projects add-iam-policy-binding "$PROJECT_ID" \
     --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
     --role="roles/logging.viewAccessor" --quiet
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+    --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+    --role="roles/logging.logWriter" --quiet
 
 # Create Cloud Storage bucket
 gcloud storage buckets create gs://"$PROJECT_ID"-bucket --location=us-east4 || true

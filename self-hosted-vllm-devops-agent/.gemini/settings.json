@@ -4,10 +4,10 @@
       "command": "python3",
       "args": ["/home/xbill/aisprintapr2026/self-hosted-vllm-devops-agent/server.py"],
       "env": {
-        "GOOGLE_CLOUD_PROJECT": "aisprint",
+        "GOOGLE_CLOUD_PROJECT": "aisprint-491218",
         "GOOGLE_CLOUD_LOCATION": "us-east4",
-        "VLLM_BASE_URL": "http://localhost:8080",
-        "MODEL_NAME": "google/gemma-2b-it"
+        "VLLM_BASE_URL": "https://vllm-gemma-2b-it-wgcq55zbfq-uk.a.run.app",
+        "MODEL_NAME": "/mnt/models/gemma-2b-it"
       }
     }
   }

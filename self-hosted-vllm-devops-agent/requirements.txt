@@ -8,3 +8,7 @@ google-cloud-aiplatform
 kaggle
 kagglehub
 google-cloud-storage
+ruff
+mypy
+types-requests
+

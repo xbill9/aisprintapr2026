@@ -14,6 +14,11 @@ run:
 test:
 	python test_agent.py
 
+lint:
+	ruff check .
+	ruff format --check .
+	mypy .
+
 clean:
 	rm -rf __pycache__
 	find . -type d -name "__pycache__" -exec rm -rf {} +
@@ -57,4 +62,30 @@ destroy-vllm:
 
 destroy: destroy-vllm
 
-.PHONY: install run test clean deploy-vllm deploy destroy-vllm destroy
+# Check status of the Cloud Run service
+status:
+	@echo "🔍 Checking status of Cloud Run service $(SERVICE_NAME) in $(REGION)..."
+	gcloud run services describe $(SERVICE_NAME) \
+		--project=$(PROJECT_ID) \
+		--region=$(REGION)
+
+# Get the endpoint URL of the deployed Cloud Run service
+endpoint:
+	@gcloud run services describe $(SERVICE_NAME) \
+		--project=$(PROJECT_ID) \
+		--region=$(REGION) \
+		--format='value(status.url)'
+
+PROMPT ?= "What is Site Reliability Engineering?"
+
+# Query the vLLM model via the Cloud Run endpoint
+query:
+	@echo "🔍 Querying $(SERVICE_NAME) with prompt: \"$(PROMPT)\"..."
+	@ENDPOINT=$$(gcloud run services describe $(SERVICE_NAME) --project=$(PROJECT_ID) --region=$(REGION) --format='value(status.url)'); \
+	TOKEN=$$(gcloud auth print-identity-token); \
+	curl -s -X POST "$$ENDPOINT/v1/completions" \
+		-H "Authorization: Bearer $$TOKEN" \
+		-H "Content-Type: application/json" \
+		-d '{"model": "/mnt/models/$(MODEL_PATH)", "prompt": "$(PROMPT)", "max_tokens": 128, "temperature": 0.2}' | python3 -m json.tool
+
+.PHONY: install run test clean deploy-vllm deploy destroy-vllm destroy status endpoint query

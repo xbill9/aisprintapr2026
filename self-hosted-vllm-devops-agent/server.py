@@ -1,14 +1,22 @@
-import os
 import json
-import requests
+import logging
+import os
 import subprocess
-from mcp.server.fastmcp import FastMCP
-from google.cloud import logging as cloud_logging
-from typing import Dict, Any, List, Optional
+import sys
+from typing import Optional
 
-from google.cloud import aiplatform
-from google.cloud import storage
 import kagglehub
+import requests
+from google.cloud import aiplatform, storage
+from google.cloud import logging as cloud_logging
+from mcp.server.fastmcp import FastMCP
+
+# Setup logging to stderr ONLY to avoid interfering with MCP stdio communication
+logging.basicConfig(
+    stream=sys.stderr, level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger("vllm-devops-agent")
+logger.info("Initializing DevOps Agent MCP Server...")
 
 # Initialize FastMCP server
 mcp = FastMCP("Self-Hosted vLLM DevOps Agent")
@@ -21,32 +29,89 @@ BUCKET_NAME = f"{PROJECT_ID}-bucket"
 VLLM_BASE_URL = os.getenv("VLLM_BASE_URL")
 MODEL_NAME = os.getenv("MODEL_NAME", "google/gemma-2b-it")
 
-def discover_vllm_url(service_name: str = "vllm-gemma-2b-it") -> str:
+
+def discover_vllm_url(service_name: str = "vllm-gemma-2b-it") -> Optional[str]:
     """Attempts to automatically discover the Cloud Run service URL."""
     if VLLM_BASE_URL:
+        logger.info(f"Using provided VLLM_BASE_URL: {VLLM_BASE_URL}")
         return VLLM_BASE_URL
-    
+
+    logger.info(f"Attempting to discover vLLM URL for service: {service_name}")
     try:
         cmd = [
-            "gcloud", "run", "services", "describe", service_name,
-            "--platform", "managed",
-            "--region", LOCATION,
-            "--format", "value(status.url)"
+            "gcloud",
+            "run",
+            "services",
+            "describe",
+            service_name,
+            f"--project={PROJECT_ID}",
+            "--region",
+            LOCATION,
+            "--format",
+            "value(status.url)",
         ]
-        url = subprocess.check_output(cmd, stderr=subprocess.DEVNULL).decode("utf-8").strip()
-        if url:
-            print(f"📡 Automatically discovered vLLM at: {url}")
-            return url
-    except Exception:
-        pass
-    
-    return "http://localhost:8080"
+        # Added timeout and improved error handling
+        process = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+        if process.returncode == 0:
+            url = process.stdout.strip()
+            if url:
+                logger.info(f"📡 Automatically discovered vLLM at: {url}")
+                return url
+            else:
+                logger.warning("⚠️ gcloud returned empty URL for service.")
+        else:
+            logger.warning(
+                f"⚠️ gcloud failed to discover Cloud Run URL (code {process.returncode}): {process.stderr.strip()}"
+            )
+    except subprocess.TimeoutExpired:
+        logger.warning("⚠️ Discovery timed out after 15 seconds.")
+    except Exception as e:
+        logger.warning(f"⚠️ Error during vLLM discovery: {str(e)}")
+
+    logger.error("❌ Failed to discover Cloud Run URL and localhost fallback is disabled.")
+    return None
+
 
 # Resolve base URL at runtime
-ACTIVE_VLLM_URL = discover_vllm_url()
+_ACTIVE_VLLM_URL = None
+
+
+def get_vllm_url() -> str:
+    """Returns the cached vLLM URL or discovers it if needed."""
+    global _ACTIVE_VLLM_URL
+    # If not set, try discovering it
+    if not _ACTIVE_VLLM_URL:
+        _ACTIVE_VLLM_URL = discover_vllm_url()
+
+    if not _ACTIVE_VLLM_URL:
+        raise Exception(
+            "Could not determine vLLM Cloud Run URL. Ensure you are authenticated with gcloud and the service exists."
+        )
+
+    return _ACTIVE_VLLM_URL
+
+
+def get_auth_token() -> str:
+    """Gets a Google Cloud Identity Token for authenticating to Cloud Run."""
+    try:
+        # Use a timeout for the token generation too
+        return (
+            subprocess.check_output(
+                ["gcloud", "auth", "print-identity-token"],
+                stderr=subprocess.DEVNULL,
+                timeout=10,
+            )
+            .decode("utf-8")
+            .strip()
+        )
+    except Exception as e:
+        logger.warning(f"⚠️ Could not obtain identity token: {str(e)}")
+        return ""
+
 
 # Initialize Vertex AI SDK
 aiplatform.init(project=PROJECT_ID, location=LOCATION)
+
 
 @mcp.resource("config://vllm-deployment-template")
 def get_deployment_template() -> str:
@@ -92,15 +157,20 @@ volumes:
       readonly: true
 """
 
+
 @mcp.tool()
-def get_vllm_endpoint(service_name: str = "vllm-gemma-2b-it") -> str:
+def get_vllm_endpoint(service_name: str = "vllm-gemma-2b-it") -> Optional[str]:
     """
     Returns the current active vLLM endpoint URL.
-    
+
     Args:
         service_name: The Cloud Run service name to describe (defaults to 'vllm-gemma-2b-it').
     """
+    # If it's the default service, use our cached discovery logic
+    if service_name == "vllm-gemma-2b-it":
+        return get_vllm_url()
     return discover_vllm_url(service_name)
+
 
 @mcp.tool()
 def list_vertex_models() -> str:
@@ -111,17 +181,18 @@ def list_vertex_models() -> str:
         models = aiplatform.Model.list()
         if not models:
             return "No models found in Vertex AI Model Registry."
-        
+
         model_list = [f"- {m.display_name} (ID: {m.name})" for m in models]
         return "### Vertex AI Model Registry\n" + "\n".join(model_list)
     except Exception as e:
         return f"Error listing models from Vertex AI: {str(e)}"
 
+
 @mcp.tool()
 def list_bucket_models(bucket_name: str = BUCKET_NAME) -> str:
     """
     Lists the contents of the GCS bucket to check for uploaded model files.
-    
+
     Args:
         bucket_name: The GCS bucket name to check. Defaults to BUCKET_NAME.
     """
@@ -130,85 +201,106 @@ def list_bucket_models(bucket_name: str = BUCKET_NAME) -> str:
         bucket = storage_client.bucket(bucket_name)
         # List up to 100 blobs
         blobs = list(bucket.list_blobs(max_results=100))
-        
+
         if not blobs:
             return f"The bucket '{bucket_name}' is empty."
-        
+
         # Display up to 50 for brevity
         file_list = [f"- {b.name} ({b.size / 1024 / 1024:.2f} MB)" for b in blobs[:50]]
         summary = f"### Contents of GCS Bucket: {bucket_name}\n"
         summary += "\n".join(file_list)
-        
+
         if len(blobs) > 50:
             summary += f"\n\n(Showing 50 of {len(blobs)} items)"
-            
+
         return summary
     except Exception as e:
         return f"Error listing objects in bucket '{bucket_name}': {str(e)}"
+
 
 @mcp.tool()
 async def analyze_cloud_logging(filter_query: str, limit: int = 5) -> str:
     """
     Fetches and summarizes error logs from Google Cloud Logging using a self-hosted vLLM endpoint on Cloud Run.
-    
+
     Args:
         filter_query: Filter for Cloud Logging (e.g., 'severity=ERROR').
         limit: Number of recent logs to fetch.
     """
     try:
         logging_client = cloud_logging.Client(project=PROJECT_ID)
-        entries = list(logging_client.list_entries(filter_=filter_query, order_by=cloud_logging.DESCENDING, page_size=limit))
-        
+        entries = list(
+            logging_client.list_entries(filter_=filter_query, order_by=cloud_logging.DESCENDING, page_size=limit)
+        )
+
         if not entries:
             return "No matching logs found."
-        
-        log_texts = [f"Timestamp: {e.timestamp} | Severity: {e.severity} | Message: {e.payload if isinstance(e.payload, str) else json.dumps(e.payload)}" for e in entries]
+
+        log_texts = [
+            f"Timestamp: {e.timestamp} | Severity: {e.severity} | Message: {str(e.payload)[:1000] if isinstance(e.payload, str) else json.dumps(e.payload)[:1000]}"
+            for e in entries
+        ]
         combined_logs = "\n---\n".join(log_texts)
-        
+
+        # Truncate combined logs to ~3000 tokens (approx 12000 chars) to stay within 4096 context limit
+        if len(combined_logs) > 12000:
+            combined_logs = combined_logs[:12000] + "... (truncated)"
+
         # Prepare prompt for Gemma
         prompt = f"Analyze the following DevOps logs and provide a high-level summary of the critical issues and potential root causes:\n\n{combined_logs}\n\nSummary:"
-        
+
         # Query Self-Hosted vLLM (OpenAI compatible API)
+        token = get_auth_token()
         headers = {"Content-Type": "application/json"}
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+
+        vllm_url = get_vllm_url()
         response = requests.post(
-            f"{ACTIVE_VLLM_URL}/v1/completions",
+            f"{vllm_url}/v1/completions",
             headers=headers,
             json={
-                "model": f"/mnt/models/{MODEL_NAME.split('/')[-1]}", # Match the path in Cloud Run
+                "model": f"/mnt/models/{MODEL_NAME.split('/')[-1]}",  # Match the path in Cloud Run
                 "prompt": prompt,
                 "max_tokens": 512,
-                "temperature": 0.2
-            }
+                "temperature": 0.2,
+            },
         )
         response.raise_for_status()
         result = response.json()
-        
+
         return f"### Log Analysis (Self-Hosted vLLM)\n\n{result['choices'][0]['text']}"
-        
+
     except Exception as e:
         return f"Error analyzing logs via self-hosted vLLM: {str(e)}"
+
 
 @mcp.tool()
 async def suggest_sre_remediation(error_message: str) -> str:
     """
     Proposes remediation steps for a specific SRE incident using self-hosted vLLM.
-    
+
     Args:
         error_message: The error or incident description to remediate.
     """
     prompt = f"As an expert SRE, suggest a 3-step remediation plan for the following error:\n\nError: {error_message}\n\nRemediation Plan:"
-    
+
     try:
+        token = get_auth_token()
         headers = {"Content-Type": "application/json"}
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+
+        vllm_url = get_vllm_url()
         response = requests.post(
-            f"{ACTIVE_VLLM_URL}/v1/completions",
+            f"{vllm_url}/v1/completions",
             headers=headers,
             json={
                 "model": f"/mnt/models/{MODEL_NAME.split('/')[-1]}",
                 "prompt": prompt,
                 "max_tokens": 512,
-                "temperature": 0.2
-            }
+                "temperature": 0.2,
+            },
         )
         response.raise_for_status()
         result = response.json()
@@ -216,27 +308,33 @@ async def suggest_sre_remediation(error_message: str) -> str:
     except Exception as e:
         return f"Error fetching remediation plan: {str(e)}"
 
+
 @mcp.tool()
 async def query_vllm(prompt: str, max_tokens: int = 512, temperature: float = 0.2) -> str:
     """
     Directly queries the self-hosted vLLM model with a custom prompt.
-    
+
     Args:
         prompt: The text prompt to send to the model.
         max_tokens: Maximum number of tokens to generate.
         temperature: Sampling temperature (0.0 for deterministic).
     """
     try:
+        token = get_auth_token()
         headers = {"Content-Type": "application/json"}
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+
+        vllm_url = get_vllm_url()
         response = requests.post(
-            f"{ACTIVE_VLLM_URL}/v1/completions",
+            f"{vllm_url}/v1/completions",
             headers=headers,
             json={
                 "model": f"/mnt/models/{MODEL_NAME.split('/')[-1]}",
                 "prompt": prompt,
                 "max_tokens": max_tokens,
-                "temperature": temperature
-            }
+                "temperature": temperature,
+            },
         )
         response.raise_for_status()
         result = response.json()
@@ -244,8 +342,16 @@ async def query_vllm(prompt: str, max_tokens: int = 512, temperature: float = 0.
     except Exception as e:
         return f"Error querying vLLM: {str(e)}"
 
+
 @mcp.tool()
-def get_vllm_deployment_config(service_name: str = "vllm-gemma-2b-it", bucket_name: str = BUCKET_NAME, model_path: str = "gemma-2b-it", allow_unauthenticated: bool = False, min_instances: int = 0, gpu_memory_utilization: float = 0.9) -> str:
+def get_vllm_deployment_config(
+    service_name: str = "vllm-gemma-2b-it",
+    bucket_name: str = BUCKET_NAME,
+    model_path: str = "gemma-2b-it",
+    allow_unauthenticated: bool = False,
+    min_instances: int = 0,
+    gpu_memory_utilization: float = 0.9,
+) -> str:
     """
     Generates the gcloud command to deploy vLLM to Cloud Run with GCS FUSE and NVIDIA L4 GPU.
 
@@ -259,18 +365,19 @@ def get_vllm_deployment_config(service_name: str = "vllm-gemma-2b-it", bucket_na
     """
     # Note: Private Google Access must be enabled on the VPC subnet for GCS FUSE to work.
     command = [
-        "gcloud beta run deploy", service_name,
+        "gcloud beta run deploy",
+        service_name,
         "--image=vllm/vllm-openai:latest",
         "--gpu=1",
         "--gpu-type=nvidia-l4",
-        "--no-gpu-zonal-redundancy", # Fix for quota issues in us-east4
-        "--no-cpu-throttling", # Required for GPU deployment
-        "--concurrency=4", # Optimal for LLM throughput vs latency
-        "--timeout=3600", # 1 hour timeout for long generations
+        "--no-gpu-zonal-redundancy",  # Fix for quota issues in us-east4
+        "--no-cpu-throttling",  # Required for GPU deployment
+        "--concurrency=4",  # Optimal for LLM throughput vs latency
+        "--timeout=3600",  # 1 hour timeout for long generations
         "--startup-probe=timeoutSeconds=60,periodSeconds=60,failureThreshold=10,initialDelaySeconds=180,httpGet.port=8000,httpGet.path=/health",
-        "--max-instances=1", # Prevent scaling beyond quota
+        "--max-instances=1",  # Prevent scaling beyond quota
         f"--min-instances={min_instances}",
-        "--port=8000", # vLLM default port
+        "--port=8000",  # vLLM default port
         "--memory=16Gi",
         "--cpu=4",
         "--execution-environment=gen2",
@@ -279,23 +386,32 @@ def get_vllm_deployment_config(service_name: str = "vllm-gemma-2b-it", bucket_na
         # vLLM arguments passed as comma-separated list
         f"--args=--model=/mnt/models/{model_path},--max-model-len=4096,--trust-remote-code,--gpu-memory-utilization={gpu_memory_utilization},--host=0.0.0.0",
         "--allow-unauthenticated" if allow_unauthenticated else "--no-allow-unauthenticated",
-        f"--region={LOCATION}"
+        f"--region={LOCATION}",
     ]
 
     return " ".join(command)
 
+
 @mcp.tool()
-def deploy_vllm(service_name: str = "vllm-gemma-2b-it", model_path: str = "gemma-2b-it", bucket_name: str = BUCKET_NAME) -> str:
+def deploy_vllm(
+    service_name: str = "vllm-gemma-2b-it",
+    model_path: str = "gemma-2b-it",
+    bucket_name: str = BUCKET_NAME,
+) -> str:
     """
     Deploys vLLM to Cloud Run with GPU.
-    
+
     Args:
         service_name: Name of the service to deploy.
         model_path: Path to the model in the bucket.
         bucket_name: GCS bucket name.
     """
     cmd = [
-        "gcloud", "beta", "run", "deploy", service_name,
+        "gcloud",
+        "beta",
+        "run",
+        "deploy",
+        service_name,
         f"--project={PROJECT_ID}",
         "--image=vllm/vllm-openai:latest",
         "--gpu=1",
@@ -315,41 +431,103 @@ def deploy_vllm(service_name: str = "vllm-gemma-2b-it", model_path: str = "gemma
         "--add-volume-mount=volume=model-volume,mount-path=/mnt/models",
         f"--args=--model=/mnt/models/{model_path},--max-model-len=4096,--trust-remote-code,--gpu-memory-utilization=0.9,--host=0.0.0.0",
         "--no-allow-unauthenticated",
-        f"--region={LOCATION}"
+        f"--region={LOCATION}",
     ]
-    
+
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
         return f"Successfully deployed {service_name}:\n{result.stdout}"
     except subprocess.CalledProcessError as e:
         return f"Failed to deploy {service_name}:\nError: {e.stderr}\nOutput: {e.stdout}"
 
+
 @mcp.tool()
 def destroy_vllm(service_name: str = "vllm-gemma-2b-it") -> str:
     """
     Destroys the Cloud Run vLLM service.
-    
+
     Args:
         service_name: Name of the service to destroy.
     """
     cmd = [
-        "gcloud", "run", "services", "delete", service_name,
+        "gcloud",
+        "run",
+        "services",
+        "delete",
+        service_name,
         f"--project={PROJECT_ID}",
         f"--region={LOCATION}",
-        "--quiet"
+        "--quiet",
     ]
-    
+
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
         return f"Successfully destroyed {service_name}:\n{result.stdout}"
     except subprocess.CalledProcessError as e:
         return f"Failed to destroy {service_name}:\nError: {e.stderr}\nOutput: {e.stdout}"
 
+
+@mcp.tool()
+def status_vllm(service_name: str = "vllm-gemma-2b-it") -> str:
+    """
+    Checks the status of the Cloud Run vLLM service.
+
+    Args:
+        service_name: Name of the service to check.
+    """
+    cmd = [
+        "gcloud",
+        "run",
+        "services",
+        "describe",
+        service_name,
+        f"--project={PROJECT_ID}",
+        f"--region={LOCATION}",
+        "--format=yaml(status.conditions,status.latestCreatedRevisionName,status.url)",
+    ]
+
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        return f"### Status for {service_name}:\n{result.stdout}"
+    except subprocess.CalledProcessError as e:
+        return f"Failed to get status for {service_name}:\nError: {e.stderr}\nOutput: {e.stdout}"
+
+
+@mcp.tool()
+def update_vllm_scaling(min_instances: int, max_instances: int, service_name: str = "vllm-gemma-2b-it") -> str:
+    """
+    Updates the scaling configuration (min and max instances) for the Cloud Run vLLM service.
+
+    Args:
+        min_instances: The minimum number of instances to keep warm.
+        max_instances: The maximum number of instances to scale out to.
+        service_name: The name of the Cloud Run service to update.
+    """
+    cmd = [
+        "gcloud",
+        "run",
+        "services",
+        "update",
+        service_name,
+        f"--min-instances={min_instances}",
+        f"--max-instances={max_instances}",
+        f"--project={PROJECT_ID}",
+        f"--region={LOCATION}",
+    ]
+
+    try:
+        # We use 'update' which doesn't require a full image/env specification if the service exists
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        return f"Successfully updated scaling for {service_name} to min={min_instances}, max={max_instances}.\n{result.stdout}"
+    except subprocess.CalledProcessError as e:
+        return f"Failed to update scaling for {service_name}:\nError: {e.stderr}\nOutput: {e.stdout}"
+
+
 @mcp.tool()
 def get_vllm_tpu_deployment_config(cluster_name: str = "tpu-cluster", model_name: str = "google/gemma-2-9b-it") -> str:
     """
     Generates a GKE manifest and setup instructions for deploying vLLM on TPU v5e.
-    
+
     Args:
         cluster_name: The name of the GKE cluster.
         model_name: The model identifier (e.g., 'google/gemma-2-9b-it').
@@ -435,6 +613,7 @@ spec:
 """
     return manifest
 
+
 @mcp.tool()
 def get_vertex_ai_model_copy_instructions(model_name: str = "gemma-2b-it") -> str:
     """
@@ -459,8 +638,11 @@ Once the artifacts are in your bucket, use `get_vllm_deployment_config` to gener
 """
     return instructions
 
+
 @mcp.tool()
-def get_kagglehub_download_path(model_slug: str = "google/gemma/transformers/2b-it/1") -> str:
+def get_kagglehub_download_path(
+    model_slug: str = "google/gemma/transformers/2b-it/1",
+) -> str:
     """
     Returns the local cache path for a Kaggle model using kagglehub.
     Note: This may trigger a download if the model is not already in the cache.
@@ -471,19 +653,23 @@ def get_kagglehub_download_path(model_slug: str = "google/gemma/transformers/2b-
     except Exception as e:
         return f"Error resolving kagglehub path: {str(e)}"
 
+
 @mcp.tool()
-def get_kaggle_model_copy_instructions(model_slug: str = "google/gemma/transformers/2b-it/1", bucket_name: str = BUCKET_NAME) -> str:
+def get_kaggle_model_copy_instructions(
+    model_slug: str = "google/gemma/transformers/2b-it/1",
+    bucket_name: str = BUCKET_NAME,
+) -> str:
     """
     Provides instructions and commands to transfer Gemma model weights from Kaggle to your GCS bucket.
-    
+
     Args:
         model_slug: The Kaggle model slug (e.g., 'google/gemma/transformers/2b-it/1').
         bucket_name: The target GCS bucket name.
     """
     # Extract a friendly name from the slug (e.g., '2b-it')
-    parts = model_slug.split('/')
+    parts = model_slug.split("/")
     model_name = parts[-2] if len(parts) > 2 else "gemma-model"
-    
+
     instructions = f"""
 ### 📦 Transferring {model_name} from Kaggle to GCS
 
@@ -519,6 +705,7 @@ Once uploaded, you can deploy using:
 `get_vllm_deployment_config(model_path="{model_name}")`
 """
     return instructions
+
 
 if __name__ == "__main__":
     mcp.run()
