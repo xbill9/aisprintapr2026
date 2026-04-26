@@ -79,12 +79,22 @@ endpoint:
 		--zone=$(ZONE) \
 		--format='value(networkEndpoints[0].ipAddress)'
 
+# Run the performance benchmarking suite
+benchmark:
+	@echo "📊 Discovering endpoint for $(SERVICE_NAME)..."
+	@IP=$$(gcloud compute tpus tpu-vm describe $(SERVICE_NAME) --project=$(PROJECT_ID) --zone=$(ZONE) --format='value(networkEndpoints[0].accessConfig.externalIp)'); \
+	if [ -z "$$IP" ]; then IP=$$(gcloud compute tpus tpu-vm describe $(SERVICE_NAME) --project=$(PROJECT_ID) --zone=$(ZONE) --format='value(networkEndpoints[0].ipAddress)'); fi; \
+	if [ -z "$$IP" ]; then echo "❌ Error: Could not find IP for $(SERVICE_NAME)"; exit 1; fi; \
+	echo "🚀 Starting benchmark against http://$$IP:8000"; \
+	python benchmarking_suite.py --url http://$$IP:8000 --model $(MODEL_PATH)
+
 PROMPT ?= "What is Site Reliability Engineering?"
 
 # Query the vLLM model via the TPU VM endpoint (assuming it's running)
 query:
 	@echo "🔍 Querying $(SERVICE_NAME) with prompt: \"$(PROMPT)\"..."
-	@IP=$$(gcloud compute tpus tpu-vm describe $(SERVICE_NAME) --project=$(PROJECT_ID) --zone=$(ZONE) --format='value(networkEndpoints[0].ipAddress)'); \
+	@IP=$$(gcloud compute tpus tpu-vm describe $(SERVICE_NAME) --project=$(PROJECT_ID) --zone=$(ZONE) --format='value(networkEndpoints[0].accessConfig.externalIp)'); \
+	if [ -z "$$IP" ]; then IP=$$(gcloud compute tpus tpu-vm describe $(SERVICE_NAME) --project=$(PROJECT_ID) --zone=$(ZONE) --format='value(networkEndpoints[0].ipAddress)'); fi; \
 	curl -s -X POST "http://$$IP:8000/v1/completions" \
 		-H "Content-Type: application/json" \
 		-d '{"model": "$(MODEL_PATH)", "prompt": "$(PROMPT)", "max_tokens": 128, "temperature": 0.2}' | python3 -m json.tool

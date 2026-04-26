@@ -10,3 +10,4 @@ mypy
 types-requests
 openai
 httpx
+pandas
