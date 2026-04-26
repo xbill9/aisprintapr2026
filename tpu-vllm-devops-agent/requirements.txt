@@ -1,0 +1,12 @@
+mcp
+fastmcp
+google-cloud-logging
+requests
+python-dotenv
+google-adk
+google-cloud-secret-manager
+ruff
+mypy
+types-requests
+openai
+httpx

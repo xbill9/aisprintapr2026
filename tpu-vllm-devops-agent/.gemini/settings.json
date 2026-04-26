@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "vllm-tpu-agent": {
+      "command": "python3",
+      "args": [
+        "/home/xbill/aisprintapr2026/tpu-vllm-devops-agent/server.py"
+      ],
+      "env": {
+        "GOOGLE_CLOUD_PROJECT": "aisprint-491218",
+        "GOOGLE_CLOUD_LOCATION": "us-east4",
+        "MODEL_NAME": "google/gemma-4-31B-it"
+      }
+    }
+  }
+}
