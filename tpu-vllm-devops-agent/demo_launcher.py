@@ -1,12 +1,10 @@
 # Grand Demo: TPU vLLM DevOps Agent (Gemma 4)
 
 import asyncio
-import os
 
 from server import (
     analyze_cloud_logging,
     get_vllm_deployment_config,
-    suggest_sre_remediation,
     get_vllm_endpoint,
 )
 
@@ -29,13 +27,8 @@ async def devops_demo():
     analysis = await analyze_cloud_logging(filter_query="severity=ERROR", limit=2)
     print(f"  ANALYSIS: {analysis[:300]}...")
 
-    # Step 3: SRE Remediation
-    print("\n[Step 3] Proposing remediation for 'MemoryLimitExceeded'...")
-    remediation = await suggest_sre_remediation(error_message="Pod 'vllm-gemma4' terminated with Reason: OOMKilled")
-    print(f"  REMEDIATION: {remediation[:300]}...")
-
-    # Step 4: Deployment Config & TPU instructions
-    print("\n[Step 4] Generating TPU v6e (Trillium) Deployment Config...")
+    # Step 3: Deployment Config & TPU instructions
+    print("\n[Step 3] Generating TPU v6e (Trillium) Deployment Config...")
     config = get_vllm_deployment_config(
         service_name="vllm-gemma4-sre-agent",
         model_name="google/gemma-4-31B-it",

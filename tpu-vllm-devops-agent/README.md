@@ -1,5 +1,8 @@
 # TPU vLLM DevOps Agent (MCP Server)
 
+## Role
+This project functions as an expert TPU SRE and DevOps Engineer, specialized in the **Gemma 4** ecosystem. Its primary goal is to manage the self-hosted inference stack and leverage it for infrastructure analysis.
+
 This project provides an automated DevOps/SRE assistant that leverages **Gemma 4 models self-hosted via vLLM on Cloud TPUs**. It bridges Google Cloud Logging with a private inference endpoint to analyze infrastructure issues and suggest remediations.
 
 ## 🟢 Current Status: ONLINE
@@ -16,6 +19,7 @@ The MCP server expects a running vLLM instance. Your TPU deployment for the mode
 *   **Hardware:** Cloud TPU v6e (Trillium) with topology `2x4` (8 chips).
 *   **Software:** `vllm/vllm-tpu:nightly` specialized container (v0.19.2+ recommended for Gemma 4 fixes).
 *   **Model:** `google/gemma-4-31B-it` (Hugging Face ID).
+*   **Runtime:** `v2-alpha-tpuv6e` for Flex-start / Queued Resources.
 *   **Networking:** Private Google Access must be enabled for internal connectivity, or direct internet access for Hugging Face downloads.
 
 ### 2. Software & API Dependencies
@@ -31,6 +35,31 @@ You can configure the following variables for the MCP server:
 *   `GOOGLE_CLOUD_PROJECT`: Your GCP Project ID (defaults to `aisprint-491218`).
 *   `MODEL_NAME`: The model identifier used by vLLM (defaults to `google/gemma-4-31B-it`).
 
+## Technical Standards
+-   **vLLM API:** OpenAI-compatible endpoint at `/v1/chat/completions`.
+-   **Optimization Flags:**
+    -   `--tensor-parallel-size 8`
+    -   `--max-model-len 16384`
+    -   `--disable_chunked_mm_input`
+    -   `--max_num_batched_tokens 4096` (required for multimodal compatibility)
+    -   `--limit-mm-per-prompt '{"image":4,"audio":1}'` (JSON format required in nightly)
+-   **Tooling:** Enable `--enable-auto-tool-choice`, `--tool-call-parser gemma4`, and `--reasoning-parser gemma4`.
+
+## Flex-start VMs
+Our stack leverages **Flex-start VMs** (via the `v2-alpha-tpuv6e` runtime) to maximize TPU availability and minimize costs.
+
+### Key Characteristics
+*   **Dynamic Workload Scheduler (DWS):** Provisions resources from a secure pool, increasing the probability of securing high-demand TPU v6e chips.
+*   **Wait-Time Mechanism:** Requests can wait up to 2 hours for resources if capacity is full.
+*   **Execution Limit:** VMs have a maximum run duration of **7 days**, requiring `maxRunDuration` and a termination action.
+*   **Dense Placement:** TPU nodes are placed in close physical proximity to minimize network latency.
+*   **Cost Efficiency:** Offers discounted pricing for vCPUs, memory, and TPU accelerators.
+
+### Constraints
+*   **No Live Migration:** Flex-start VMs do not support live migration.
+*   **Quota Requirements:** Requires sufficient **preemptible quota**.
+*   **No Reservations:** These instances **cannot** consume existing TPU reservations.
+
 ## 🛠 Usage & Setup
 
 ### Step 1: Turnkey Deployment to TPU
@@ -42,6 +71,59 @@ Install dependencies and run the server locally:
 make install
 make run
 ```
+
+### Step 3: LiteLLM Proxy Setup
+To enable seamless integration with the Gemini CLI, you can set up a LiteLLM proxy to route requests to your self-hosted vLLM endpoint on TPU.
+
+#### 1. Install LiteLLM Proxy
+You need the [proxy] version of LiteLLM to handle the translation:
+```bash
+pip install 'litellm[proxy]'
+```
+
+#### 2. Create a configuration file (`litellm_config.yaml`)
+Create this file to map the Gemini model names used by the CLI to your TPU endpoint:
+```yaml
+model_list:
+  - model_name: "gemma4-tpu"
+    litellm_params:
+      model: "openai/google/gemma-4-31B-it" # Tell LiteLLM it's an OpenAI-style endpoint
+      api_base: "http://35.222.239.170:8000/v1" # Your TPU IP
+      api_key: "none" # vLLM doesn't require a key by default
+    router_settings:
+      model_group_alias:
+        # Map common Gemini model names to your TPU-hosted Gemma 4
+        "gemini-2.0-flash": "gemma4-tpu"
+        "gemini-2.0-flash-lite": "gemma4-tpu"
+        "gemini-1.5-flash": "gemma4-tpu"
+        "gemini-1.5-pro": "gemma4-tpu"
+```
+*Note: The IP `35.222.239.170` matches the Active Deployment in this workspace.*
+
+#### 3. Start the LiteLLM Proxy
+Run this in a separate terminal (or in the background):
+```bash
+litellm --config litellm_config.yaml --port 4000
+```
+
+#### 4. Configure Gemini CLI to use the Proxy
+Set these environment variables in your shell (e.g., in `~/.bashrc` or `~/.zshrc`) to make it permanent:
+```bash
+# Point the CLI to your local LiteLLM proxy
+export GOOGLE_GEMINI_BASE_URL="http://localhost:4000"
+
+# Set the default model globally
+export GEMINI_MODEL="google/gemma-4-31B-it"
+
+# The CLI requires a key even if the proxy ignores it
+export GEMINI_API_KEY="local-proxy-token"
+```
+
+**Why this works:**
+*   **API Translation:** When you run `gemini "Hello"`, the CLI sends a request to `localhost:4000` in Google format. LiteLLM translates this to the OpenAI format and forwards it to your TPU.
+*   **Tool Calling Compatibility:** Because we deployed your Gemma 4 stack with `--tool-call-parser gemma4`, the model's reasoning and tool outputs will be perfectly understood by the Gemini CLI when it tries to run shell commands or edit files.
+
+Now, every time you run `gemini`, it will be powered by your private TPU v6e cluster.
 
 ## 🛠 Available Tools
 
@@ -70,7 +152,6 @@ The following tools are available via the MCP server:
 *   **`query_queued_gemma4`**: Primary tool for interacting with the self-hosted model.
 *   **`query_vllm_with_metrics`**: Provides streaming responses with TTFT and total latency data.
 *   **`analyze_cloud_logging`**: Summarizes TPU-related errors using the self-hosted Gemma 4 model.
-*   **`suggest_sre_remediation`**: Provides actionable remediation plans for common TPU failures.
 *   **`save_hf_token`**: Securely saves a Hugging Face API token to GCP Secret Manager.
 
 ## 🌟 Grand Demo
