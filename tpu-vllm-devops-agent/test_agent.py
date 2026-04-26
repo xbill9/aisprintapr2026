@@ -42,20 +42,23 @@ class TestDevOpsAgent(unittest.IsolatedAsyncioTestCase):
         """Verify the default model is Gemma 4."""
         self.assertEqual(MODEL_NAME, "google/gemma-4-31B-it")
 
-    def test_get_vllm_deployment_config(self):
+    @patch("server.get_secret", new_callable=AsyncMock)
+    async def test_get_vllm_deployment_config(self, mock_get_secret):
         """Test TPU deployment config generation."""
-        config = get_vllm_deployment_config(service_name="test-vllm", model_name="google/gemma-4-31B-it")
+        mock_get_secret.return_value = "dummy-hf-token"
+        config = await get_vllm_deployment_config(service_name="test-vllm", model_name="google/gemma-4-31B-it")
         self.assertIn("gcloud alpha compute tpus tpu-vm create test-vllm", config)
-        self.assertIn("--type v6e", config)
-        self.assertIn("--topology 2x4", config)
-        self.assertIn("vllm/vllm-tpu:gemma4", config)
+        self.assertIn("--accelerator-type=v6e-8", config)
+        self.assertIn("--version=v2-alpha-tpuv6e", config)
+
+        self.assertIn("vllm/vllm-tpu:nightly", config)
         self.assertIn("google/gemma-4-31B-it", config)
 
     @patch("server.get_vllm_client", new_callable=AsyncMock)
-    @patch("server.get_vllm_url", new_callable=AsyncMock)
-    async def test_verify_model_health_success(self, mock_get_url, mock_get_client):
+    @patch("server.discover_vllm_url", new_callable=AsyncMock)
+    async def test_verify_model_health_success(self, mock_discover_url, mock_get_client):
         """Test successful model health check."""
-        mock_get_url.return_value = "http://test-url:8000"
+        mock_discover_url.return_value = "http://test-url:8000"
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
 
@@ -94,22 +97,28 @@ class TestDevOpsAgent(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Performance Metrics", result)
         self.assertIn("TTFT", result)
 
-    @patch("server.run_command", new_callable=AsyncMock)
-    async def test_get_vllm_model_stats_success(self, mock_run_command):
+    @patch("server.discover_vllm_url", new_callable=AsyncMock)
+    @patch("httpx.AsyncClient", autospec=True)
+    async def test_get_vllm_model_stats_success(self, mock_async_client, mock_discover_url):
         """Test retrieving model stats."""
-        # Mock 3 calls: api, version, ps (returncode, stdout, stderr)
-        mock_run_command.side_effect = [
-            (0, '{"data": [{"id": "test-model", "max_model_len": 4096}]}', ""),
-            (0, "0.7.0", ""),
-            (0, "vllm serve --model test --max-model-len 4096", ""),
-        ]
+        mock_discover_url.return_value = "http://test-url:8000"
+
+        # Mock httpx.AsyncClient and its get method
+        mock_client_instance = mock_async_client.return_value.__aenter__.return_value
+
+        mock_health_response = MagicMock()
+        mock_health_response.status_code = 200
+
+        mock_models_response = MagicMock()
+        mock_models_response.json.return_value = {"data": [{"id": "test-model", "max_model_len": 4096}]}
+        mock_models_response.status_code = 200
+
+        mock_client_instance.get.side_effect = [mock_health_response, mock_models_response]
 
         result = await get_vllm_model_stats()
-        self.assertIn("vLLM Model Stats", result)
+        self.assertIn("### 📈 Model Statistics", result)
         self.assertIn("test-model", result)
-        self.assertIn("0.7.0", result)
         self.assertIn("4096", result)
-        self.assertIn("--model", result)
 
     @patch("server.secretmanager.SecretManagerServiceClient")
     async def test_save_hf_token(self, mock_secret_client):
@@ -118,9 +127,9 @@ class TestDevOpsAgent(unittest.IsolatedAsyncioTestCase):
         mock_instance.add_secret_version.return_value.name = "projects/test-project/secrets/hf-token/versions/1"
 
         # Test successful save (secret exists)
-        result = await save_hf_token("test-token", "hf-token")
-        self.assertIn("Successfully saved token", result)
-        self.assertIn("versions/1", result)
+        result = await save_hf_token("test-token")
+        self.assertIn("✅ Token saved.", result)
+
         mock_instance.add_secret_version.assert_called()
 
 
