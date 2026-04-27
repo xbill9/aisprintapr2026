@@ -1,5 +1,4 @@
 mcp
-fastmcp
 google-cloud-logging
 requests
 python-dotenv
@@ -11,3 +10,4 @@ types-requests
 openai
 httpx
 pandas
+filelock

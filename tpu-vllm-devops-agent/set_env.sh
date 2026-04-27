@@ -7,11 +7,17 @@ if ! gcloud auth list --filter=status:ACTIVE --format="value(account)" | grep -q
 fi
 
 # Get current project
-PROJECT_ID=$(gcloud config get-value project 2>/dev/null)
+if [ -f "$HOME/project_id.txt" ]; then
+    PROJECT_ID=$(cat "$HOME/project_id.txt")
+fi
+
 if [ "$PROJECT_ID" == "(unset)" ] || [ -z "$PROJECT_ID" ]; then
     echo "Warning: No gcloud project is currently set."
     echo "Run 'gcloud config set project [PROJECT_ID]' to configure it."
 fi
+
+gcloud config set project $PROJECT_ID
+
 
 if [ -f "$HOME/gemini.key" ]; then
     GOOGLE_API_KEY=$(cat "$HOME/gemini.key")
@@ -23,9 +29,10 @@ fi
 cat <<EOF > .env
 GOOGLE_GENAI_USE_VERTEXAI=false
 GOOGLE_CLOUD_PROJECT=$PROJECT_ID
-GOOGLE_CLOUD_LOCATION=us-central1
-GOOGLE_CLOUD_REGION=us-central1
-GOOGLE_CLOUD_ZONE=us-central1-a
+GOOGLE_CLOUD_LOCATION=southamerica-east1
+GOOGLE_CLOUD_REGION=southamerica-east1
+GOOGLE_CLOUD_ZONE=southamerica-east1-c
+MODEL=google/gemma-4-31B-it
 GENAI_MODEL="gemini-2.5-flash"
 GOOGLE_API_KEY=$GOOGLE_API_KEY
 GEMINI_API_KEY=$GOOGLE_API_KEY
@@ -38,6 +45,8 @@ cat .env
 
 echo "Cloud Login"
 gcloud auth list
+
+gcloud config list
 
 echo "ADK Version"
 adk --version

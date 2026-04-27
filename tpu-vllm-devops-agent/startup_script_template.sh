@@ -68,84 +68,64 @@ fi
 echo "HF_HOME set to: $HF_HOME"
 echo "HF_TOKEN set (value masked for security)."
 
-# Main loop for vLLM container management
-while true; do
-  echo "--- Starting vLLM container management loop iteration ---"
-  echo "Checking for existing vLLM container (name=vllm-gemma4)..."
-  CONTAINER_ID=$(sudo docker ps -a --filter "name=vllm-gemma4" --format "{{.ID}}")
-  CONTAINER_RUNNING=$(sudo docker ps --filter "name=vllm-gemma4" --format "{{.ID}}")
-  echo "CONTAINER_ID (all states): $CONTAINER_ID"
-  echo "CONTAINER_RUNNING (active only): $CONTAINER_RUNNING"
+echo "Attempting to start vLLM container..."
+# Stop and remove any existing container with the same name to ensure a clean start
+sudo docker stop vllm-gemma4 > /dev/null 2>&1 || true
+sudo docker rm vllm-gemma4 > /dev/null 2>&1 || true
 
-  if [ -z "$CONTAINER_RUNNING" ]; then # Container not running (or doesn't exist)
-    echo "vLLM container not found or not running."
-    if [ -n "$CONTAINER_ID" ]; then # Container exists but is stopped
-      echo "vLLM container found (stopped). Removing existing container: $CONTAINER_ID"
-      sudo docker rm vllm-gemma4 || echo "Error removing stopped container, continuing..."
-    fi
+# Log the full docker run command before executing it
+echo "Executing command: sudo docker run --name vllm-gemma4 --privileged --net=host -d \\
+  -v /dev/shm:/dev/shm --shm-size 10gb \\
+  -e HF_HOME=\"$HF_HOME\" \\
+  -e HF_TOKEN=\"$HF_TOKEN\" \\
+  vllm/vllm-tpu:nightly vllm serve \"$VLLM_MODEL\" \\
+  --max-model-len \"$VLLM_MAX_MODEL_LEN\" \\
+  --tensor-parallel-size \"$VLLM_TP_SIZE\" \\
+  --disable_chunked_mm_input \\
+  --max_num_batched_tokens 4096 \\
+  --enable-auto-tool-choice \\
+  --tool-call-parser gemma4 \\
+  --reasoning-parser gemma4 \\
+  --verbose"
 
-    echo "Attempting to start new vLLM container..."
-    # Log the full docker run command before executing it
-    echo "Executing command: sudo docker run --name vllm-gemma4 --privileged --net=host -d 
-      -v /dev/shm:/dev/shm --shm-size 16gb 
-      -e HF_HOME="$HF_HOME" 
-      -e HF_TOKEN="$HF_TOKEN" 
-      vllm/vllm-tpu:nightly vllm serve "$VLLM_MODEL" 
-      --max-model-len "$VLLM_MAX_MODEL_LEN" 
-      --tensor-parallel-size "$VLLM_TP_SIZE" 
-      --disable_chunked_mm_input 
-      --max_num_batched_tokens "$VLLM_MAX_BATCHED_TOKENS" 
-      {limit_mm_per_prompt_arg} 
-      --enable-auto-tool-choice 
-      --tool-call-parser gemma4 
-      --reasoning-parser gemma4 
-      --verbose"
-    
-    sudo docker run --name vllm-gemma4 --privileged --net=host -d -v /dev/shm:/dev/shm --shm-size 16gb -e HF_HOME="$HF_HOME" -e HF_TOKEN="$HF_TOKEN" vllm/vllm-tpu:nightly vllm serve "$VLLM_MODEL" --max-model-len "$VLLM_MAX_MODEL_LEN" --tensor-parallel-size "$VLLM_TP_SIZE" --disable_chunked_mm_input --max_num_batched_tokens "$VLLM_MAX_BATCHED_TOKENS" {limit_mm_per_prompt_arg} --enable-auto-tool-choice --tool-call-parser gemma4 --reasoning-parser gemma4 --verbose
-    
-    if [ $? -ne 0 ]; then
-      echo "ERROR: Docker run command failed. Check parameters and image."
-      sudo docker logs vllm-gemma4 || echo "Could not fetch logs for failed container."
-      # Attempt a cleanup for next iteration
-      sudo docker stop vllm-gemma4 && sudo docker rm vllm-gemma4 || true
-      sleep 60 # Wait before next attempt
-      continue # Skip health check and proceed to next loop iteration
-    fi
-    echo "Docker container start command issued. Waiting 5 seconds for initial setup..."
-    sleep 5
+sudo docker run --name vllm-gemma4 --privileged --net=host -d \
+  -v /dev/shm:/dev/shm --shm-size 10gb \
+  -e HF_HOME="$HF_HOME" \
+  -e HF_TOKEN="$HF_TOKEN" \
+  vllm/vllm-tpu:nightly vllm serve "$VLLM_MODEL" \
+  --max-model-len "$VLLM_MAX_MODEL_LEN" \
+  --tensor-parallel-size "$VLLM_TP_SIZE" \
+  --disable_chunked_mm_input \
+  --max_num_batched_tokens 4096 \\
+  --enable-auto-tool-choice \\
+  --tool-call-parser gemma4 \\
+  --reasoning-parser gemma4 \\
+  --verbose
 
-    echo "Waiting for vLLM container to start and become healthy (up to 20 minutes)..."
-    HEALTHY=0
-    for i in $(seq 1 120); do
-      HEALTH_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -X GET http://localhost:8000/health)
-      if [ "$HEALTH_RESPONSE" -eq 200 ]; then
-        echo "vLLM is running and healthy (HTTP 200)."
-        HEALTHY=1
-        break
-      fi
-      echo "vLLM not yet healthy (attempt $i/120). HTTP Status: $HEALTH_RESPONSE. Retrying in 10 seconds..."
-      sleep 10
-    done
+if [ $? -ne 0 ]; then
+  echo "ERROR: Docker run command failed. Check parameters and image."
+  sudo docker logs vllm-gemma4 || echo "Could not fetch logs for failed container."
+  exit 1
+fi
 
-    if [ "$HEALTHY" -eq 0 ]; then
-      echo "ERROR: vLLM did not become healthy within the timeout."
-      echo "Attempting to retrieve Docker logs for 'vllm-gemma4':"
-      sudo docker logs vllm-gemma4 || echo "Could not retrieve Docker logs."
-      echo "Attempting restart: stopping and removing container."
-      sudo docker stop vllm-gemma4 && sudo docker rm vllm-gemma4 || echo "Error during forced restart cleanup, continuing..."
-    fi
-  else # Container is running
-    echo "vLLM container is already running ($CONTAINER_RUNNING). Checking health..."
-    HEALTH_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -X GET http://localhost:8000/health)
-    if [ "$HEALTH_RESPONSE" -ne 200 ]; then
-      echo "vLLM container is running but unhealthy or not responding (HTTP Status: $HEALTH_RESPONSE). Restarting fresh..."
-      echo "Attempting to retrieve Docker logs for 'vllm-gemma4' before restart:"
-      sudo docker logs vllm-gemma4 || echo "Could not retrieve Docker logs."
-      sudo docker stop vllm-gemma4 && sudo docker rm vllm-gemma4 || echo "Error during forced restart cleanup, continuing..."
-    else
-      echo "vLLM is running and healthy (HTTP 200)."
-    fi
+echo "Docker container started. Waiting for 'Application startup complete.' in logs (up to 20 minutes)..."
+HEALTHY=0
+for i in $(seq 1 120); do
+  if sudo docker logs vllm-gemma4 2>&1 | grep -q "Application startup complete."; then
+    echo "vLLM 'Application startup complete.' message found in logs."
+    HEALTHY=1
+    break
   fi
-  echo "--- End of vLLM container management loop iteration ---"
-  sleep 60 # Check again every minute
+  echo "vLLM not yet fully started (attempt $i/120). Retrying in 10 seconds..."
+  sleep 10
 done
+
+if [ "$HEALTHY" -eq 0 ]; then
+  echo "ERROR: vLLM did not report 'Application startup complete.' within the timeout."
+  echo "Attempting to retrieve Docker logs for 'vllm-gemma4':"
+  sudo docker logs vllm-gemma4 || echo "Could not retrieve Docker logs."
+  exit 1
+fi
+
+echo "vLLM application startup complete. The server should now be ready."
+
