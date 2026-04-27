@@ -1,15 +1,26 @@
 import argparse
 import asyncio
-import time
-import httpx
 import statistics
+import time
+
+import httpx
+
 
 # Configuration through command-line arguments
 async def main():
     parser = argparse.ArgumentParser(description="Load testing script for vLLM endpoint.")
-    parser.add_argument("--url", type=str, default="http://34.46.31.222:8000/v1/completions", help="The vLLM endpoint URL.")
-    parser.add_argument("--model", type=str, default="google/gemma-4-31B-it", help="The model to use for the load test.")
-    parser.add_argument("--prompt", type=str, default="Explain the architecture of TPU v6e (Trillium) and why it is optimized for JAX.", help="The prompt to send to the model.")
+    parser.add_argument(
+        "--url", type=str, default="http://34.46.31.222:8000/v1/completions", help="The vLLM endpoint URL."
+    )
+    parser.add_argument(
+        "--model", type=str, default="google/gemma-4-31B-it", help="The model to use for the load test."
+    )
+    parser.add_argument(
+        "--prompt",
+        type=str,
+        default="Explain the architecture of TPU v6e (Trillium) and why it is optimized for JAX.",
+        help="The prompt to send to the model.",
+    )
     parser.add_argument("--num-requests", type=int, default=20, help="The total number of requests to send.")
     parser.add_argument("--concurrency", type=int, default=4, help="The number of concurrent requests.")
     args = parser.parse_args()
@@ -44,13 +55,21 @@ async def main():
     else:
         print("\n❌ All requests failed. Check if the endpoint is reachable.")
 
+
 async def send_request(client, semaphore, request_id, args):
     async with semaphore:
         print(f"  [#{request_id}] Sending request...")
         start = time.time()
         try:
             response = await client.post(
-                args.url, json={"model": args.model, "prompt": args.prompt, "max_tokens": 128, "temperature": 0.2}, timeout=60
+                args.url,
+                json={
+                    "model": args.model,
+                    "messages": [{"role": "user", "content": args.prompt}],
+                    "max_tokens": 128,
+                    "temperature": 0.2,
+                },
+                timeout=60,
             )
             response.raise_for_status()
             latency = time.time() - start
@@ -59,6 +78,7 @@ async def send_request(client, semaphore, request_id, args):
         except Exception as e:
             print(f"  [#{request_id}] Failed: {e}")
             return None
+
 
 if __name__ == "__main__":
     asyncio.run(main())
