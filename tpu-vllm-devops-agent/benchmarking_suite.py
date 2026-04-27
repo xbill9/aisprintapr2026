@@ -32,7 +32,7 @@ class vLLMBenchmarkSuite:
                 return {"success": True, "latency": latency, "tokens": tokens}
             else:
                 return {"success": False, "error": f"Status {response.status_code}"}
-        except Exception as e:
+        except httpx.RequestError as e:
             return {"success": False, "error": str(e)}
 
     async def run_batch(self, concurrency: int, num_requests: int, prompt: str, max_tokens: int):

@@ -1,105 +1,86 @@
-# TPU vLLM DevOps Agent - Project Context
+# TPU vLLM DevOps Agent (MCP Server)
 
 ## Role
-You are an expert TPU SRE and DevOps Engineer specialized in the **Gemma 4** ecosystem. Your goal is to manage the self-hosted inference stack and leverage it for infrastructure analysis.
+This project functions as an expert TPU SRE and DevOps Engineer, specialized in the **Gemma 4** ecosystem. Its primary goal is to manage the self-hosted inference stack and leverage it for infrastructure analysis.
 
-## Core Infrastructure (Trillium / v6e)
-- **TPU Version:** v6e (Trillium)
-- **Topology:** `2x4` (8 chips) is the standard for Gemma 4 31B-it.
-- **Software:** `vllm/vllm-tpu:nightly` container (v0.19.2+ required for Gemma 4 stability).
-- **Model:** `google/gemma-4-31B-it`.
-- **Runtime:** `v2-alpha-tpuv6e` for Flex-start / Queued Resources.
+This project provides an automated DevOps/SRE assistant that leverages **Gemma 4 models self-hosted via vLLM on Cloud TPUs**. It bridges Google Cloud Logging with a private inference endpoint to analyze infrastructure issues and suggest remediations.
 
-## Strategic Guidelines
-- **Discovery:** Always prefer `get_vllm_endpoint` to verify connectivity before running analysis tools.
-- **Provisioning:** Use `orchestrate_gemma4_stack` for turnkey deployment using Queued Resources.
-- **Observability:** Use `check_tpu_utilization` and `get_vllm_metrics` to monitor Tensor Core and HBM pressure.
-- **Validation:** Always run `validate_gemma4_deployment` after a new stack is provisioned.
+## 🟢 Current Status: ONLINE
+The Gemma 4 inference stack is currently deployed and active on TPU v6e-8.
+*   **Active Endpoint:** `http://35.222.239.170:8000`
+*   **Model:** `google/gemma-4-31B-it`
+
+## 🚀 Deployment Requirements
+
+To deploy and run this project, you need to address two main components: the **Inference Stack** (vLLM on TPU v6e) and the **MCP Server** itself.
+
+### 1. Infrastructure Requirements (The Inference Stack)
+The MCP server expects a running vLLM instance. Your TPU deployment for the model needs:
+*   **Hardware:** Cloud TPU v6e (Trillium) with topology `2x4` (8 chips).
+*   **Software:** `vllm/vllm-tpu:nightly` specialized container (v0.19.2+ recommended for Gemma 4 fixes).
+*   **Model:** `google/gemma-4-31B-it` (Hugging Face ID).
+*   **Runtime:** `v2-alpha-tpuv6e` for Flex-start / Queued Resources.
+*   **Networking:** Private Google Access must be enabled for internal connectivity, or direct internet access for Hugging Face downloads.
+
+### 2. Software & API Dependencies
+The agent relies on several Google Cloud services and Python libraries:
+*   **Libraries:** `mcp`, `fastmcp`, `google-cloud-logging`, `google-cloud-secret-manager`, `openai`, and `httpx`.
+*   **Permissions:** The service account running the agent needs:
+    *   `logging.logEntries.list` (to read logs).
+    *   `tpu.nodes.get` and `tpu.nodes.list` (for discovery).
+    *   `secretmanager.versions.access` (for Hugging Face tokens).
+
+### 3. Environment Variables
+You can configure the following variables for the MCP server:
+*   `GOOGLE_CLOUD_PROJECT`: Your GCP Project ID (defaults to `aisprint-491218`).
+*   `MODEL_NAME`: The model identifier used by vLLM (defaults to `google/gemma-4-31B-it`).
 
 ## Technical Standards
-- **vLLM API:** OpenAI-compatible endpoint at `/v1/chat/completions`.
-- **Optimization Flags:**
-  - `--tensor-parallel-size 8`
-  - `--max-model-len 16384`
-  - `--disable_chunked_mm_input`
-  - `--max_num_batched_tokens 4096` (required for multimodal compatibility)
-  - `--limit-mm-per-prompt '{"image":4,"audio":1}'` (JSON format required in nightly)
-- **Tooling:** Enable `--enable-auto-tool-choice`, `--tool-call-parser gemma4`, and `--reasoning-parser gemma4`.
+-   **vLLM API:** OpenAI-compatible endpoint at `/v1/chat/completions`.
+-   **Optimization Flags:**
+    -   `--tensor-parallel-size 8`
+    -   `--max-model-len 16384`
+    -   `--disable_chunked_mm_input`
+    -   `--max_num_batched_tokens 4096` (required for multimodal compatibility)
+-   **Tooling:** Enable `--enable-auto-tool-choice`, `--tool-call-parser gemma4`, and `--reasoning-parser gemma4`.
 
-## Active Deployment
-- **Resource ID:** `gemma4-vllm-stack`
-- **Node ID:** `gemma4-vllm-stack-node`
-- **IP Address:** `35.222.239.170`
-- **Port:** `8000`
-- **Zone:** `us-central1-a`
-- **Status:** **🟢 ONLINE** (Initialized and ready for inference).
-
-## Release Notes (v0.19.1+)
-### Gemma 4 Bug Fixes
-- **Streaming Tool Calls:** Fixed invalid JSON by stripping partial delimiters.
-- **Tool Parser:** Fixed bare `null` values being incorrectly converted to `"null"`.
-- **LoRA:** Fixed `Gemma4ForCasualLM` to ensure correct loading of LoRA adapters.
-- **Token Repetition:** Resolved repetition issues via dynamic BOS injection.
-
-## Flex-start VMs (Deep Dive)
+## Flex-start VMs
 Our stack leverages **Flex-start VMs** (via the `v2-alpha-tpuv6e` runtime) to maximize TPU availability and minimize costs.
 
 ### Key Characteristics
-- **Dynamic Workload Scheduler (DWS):** Provisions resources from a secure pool, significantly increasing the probability of securing high-demand TPU v6e chips.
-- **Wait-Time Mechanism:** Requests can wait up to 2 hours for resources to become available if capacity is currently full.
-- **Execution Limit:** VMs have a maximum run duration of **7 days**. The stack must be configured with a `maxRunDuration` and a termination action (stop/delete).
-- **Dense Placement:** Compute Engine attempts to place TPU nodes in close physical proximity to minimize network latency and hops.
-- **Cost Efficiency:** Offers discounted pricing for vCPUs, memory, and TPU accelerators compared to standard on-demand rates.
+*   **Dynamic Workload Scheduler (DWS):** Provisions resources from a secure pool, increasing the probability of securing high-demand TPU v6e chips.
+*   **Wait-Time Mechanism:** Requests can wait up to 2 hours for resources if capacity is full.
+*   **Execution Limit:** VMs have a maximum run duration of **7 days**, requiring `maxRunDuration` and a termination action.
+*   **Dense Placement:** TPU nodes are placed in close physical proximity to minimize network latency.
+*   **Cost Efficiency:** Offers discounted pricing for vCPUs, memory, and TPU accelerators.
 
-### Constraints to Note
-- **No Live Migration:** Flex-start VMs do not support live migration and will be stopped during host maintenance events.
-- **Quota Requirements:** Requires sufficient **preemptible quota** for the specific TPU version and region.
-- **No Reservations:** These instances **cannot** consume existing TPU reservations.
+### Constraints
+*   **No Live Migration:** Flex-start VMs do not support live migration.
+*   **Quota Requirements:** Requires sufficient **preemptible quota**.
+*   **No Reservations:** These instances **cannot** consume existing TPU reservations.
 
-## Provisioning with Flex-start
-To deploy the Gemma 4 stack using Flex-start, use the Queued Resources API.
+## 🛠 Usage & Setup
 
-### Core Command
+### Step 1: Turnkey Deployment to TPU
+Use the `orchestrate_gemma4_stack` tool within the MCP server for a seamless setup, or use the `gcloud` command generated by `get_vllm_deployment_config`.
+
+### Step 2: Run the MCP Server
+Install dependencies and run the server locally:
 ```bash
-gcloud alpha compute tpus queued-resources create [RESOURCE_ID] \
-    --zone=us-central1-a \
-    --accelerator-type=v6e-8 \
-    --runtime-version=v2-alpha-tpuv6e \
-    --node-id=[NODE_ID] \
-    --provisioning-model=flex-start \
-    --max-run-duration=24h
+make install
+make run
 ```
 
-### Essential Flags
-- `--provisioning-model=flex-start`: **Required** to enable the Dynamic Workload Scheduler.
-- `--max-run-duration`: **Required** (Max: 7 days). Defines the hard limit for the TPU's lifetime.
-- `--force`: (When deleting) Ensures both the queued request and the underlying VM are cleaned up.
+### Step 3: LiteLLM Proxy Setup
+To enable seamless integration with the Gemini CLI, you can set up a LiteLLM proxy to route requests to your self-hosted vLLM endpoint on TPU.
 
-### Lifecycle Management
-1. **Queuing:** Status starts as `WAITING_FOR_RESOURCES`.
-2. **Activation:** Becomes `ACTIVE` when chips are allocated.
-3. **Automatic Cleanup:** The VM is deleted automatically at the `terminationTimestamp` (start time + `max-run-duration`).
-4. **Manual Cleanup:** Always use `delete --force` to ensure quota is released.
-
-## Key References
-- [Requesting TPUs using Flex-start (Official)](https://docs.cloud.google.com/tpu/docs/request-using-flex-start)
-- [About Flex-start VMs (Official)](https://docs.cloud.google.com/compute/docs/instances/about-flex-start-vms)
-- [vLLM Gemma 4 Recipe (Official)](https://docs.vllm.ai/projects/recipes/en/latest/Google/Gemma4.html)
-
-- [Cloud TPU v6e Guide](https://cloud.google.com/tpu/docs/v6e-trillium)
-- [Cloud TPU Queued Resources](https://docs.cloud.google.com/tpu/docs/queued-resources)
-
-https://github.com/AI-Hypercomputer/tpu-recipes/tree/main/inference/trillium/vLLM/Gemma4
-
-## Step-by-Step Setup
-
-### 1. Install LiteLLM Proxy
+#### 1. Install LiteLLM Proxy
 You need the [proxy] version of LiteLLM to handle the translation:
 ```bash
 pip install 'litellm[proxy]'
 ```
 
-### 2. Create a configuration file (`litellm_config.yaml`)
+#### 2. Create a configuration file (`litellm_config.yaml`)
 Create this file to map the Gemini model names used by the CLI to your TPU endpoint:
 ```yaml
 model_list:
@@ -118,13 +99,13 @@ model_list:
 ```
 *Note: The IP `35.222.239.170` matches the Active Deployment in this workspace.*
 
-### 3. Start the LiteLLM Proxy
+#### 3. Start the LiteLLM Proxy
 Run this in a separate terminal (or in the background):
 ```bash
 litellm --config litellm_config.yaml --port 4000
 ```
 
-### 4. Configure Gemini CLI to use the Proxy
+#### 4. Configure Gemini CLI to use the Proxy
 Set these environment variables in your shell (e.g., in `~/.bashrc` or `~/.zshrc`) to make it permanent:
 ```bash
 # Point the CLI to your local LiteLLM proxy
@@ -138,8 +119,42 @@ export GEMINI_API_KEY="local-proxy-token"
 ```
 
 **Why this works:**
-* **API Translation:** When you run `gemini "Hello"`, the CLI sends a request to `localhost:4000` in Google format. LiteLLM translates this to the OpenAI format and forwards it to your TPU.
-* **Tool Calling Compatibility:** Because we deployed your Gemma 4 stack with `--tool-call-parser gemma4`, the model's reasoning and tool outputs will be perfectly understood by the Gemini CLI when it tries to run shell commands or edit files.
+*   **API Translation:** When you run `gemini "Hello"`, the CLI sends a request to `localhost:4000` in Google format. LiteLLM translates this to the OpenAI format and forwards it to your TPU.
+*   **Tool Calling Compatibility:** Because we deployed your Gemma 4 stack with `--tool-call-parser gemma4`, the model's reasoning and tool outputs will be perfectly understood by the Gemini CLI when it tries to run shell commands or edit files.
 
 Now, every time you run `gemini`, it will be powered by your private TPU v6e cluster.
 
+## 🛠 Available Tools
+
+The following tools are available via the MCP server:
+
+### Infrastructure & Deployment
+*   **`orchestrate_gemma4_stack`**: Seamlessly provisions a TPU Queued Resource and deploys the optimized vLLM stack.
+*   **`get_vllm_deployment_config`**: Generates the exact `gcloud` command for manual TPU v6e deployment.
+*   **`get_vllm_tpu_deployment_config`**: Generates GKE manifests for TPU-based deployments.
+*   **`list_queued_resources`**: Lists all active and pending Queued Resources.
+*   **`describe_queued_resource`**: Fetches detailed JSON status for a specific TPU resource.
+*   **`check_tpu_availability`**: Simple check to see if a TPU resource is `ACTIVE`.
+*   **`destroy_queued_resource`**: Safely deletes a TPU resource and its node.
+
+### Observability & Performance
+*   **`get_system_status`**: Provides a high-level dashboard of TPU quota and vLLM health.
+*   **`check_tpu_utilization`**: Monitors real-time HBM and Tensor Core pressure via Docker logs.
+*   **`get_vllm_metrics`**: Fetches Prometheus metrics from the vLLM service.
+*   **`fetch_queued_node_logs`**: Streams startup and container logs from the TPU node.
+*   **`verify_model_health`**: Runs a deep logic check with latency reporting.
+*   **`run_load_test_benchmark`**: Performs an external load test and reports throughput and latency (Avg/P95).
+*   **`get_gemma4_full_report`**: Generates a comprehensive technical report of the entire stack.
+*   **`validate_gemma4_deployment`**: Performs a comprehensive sanity check on the stack.
+
+### AI & Interaction
+*   **`query_queued_gemma4`**: Primary tool for interacting with the self-hosted model.
+*   **`query_vllm_with_metrics`**: Provides streaming responses with TTFT and total latency data.
+*   **`analyze_cloud_logging`**: Summarizes TPU-related errors using the self-hosted Gemma 4 model.
+*   **`save_hf_token`**: Securely saves a Hugging Face API token to GCP Secret Manager.
+
+## 🌟 Grand Demo
+A standalone demo script is included to showcase the agent's capabilities:
+```bash
+python demo_launcher.py
+```

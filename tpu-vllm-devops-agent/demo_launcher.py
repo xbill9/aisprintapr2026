@@ -16,7 +16,7 @@ async def devops_demo():
     # Step 1: Discovery
     print("\n[Step 1] Discovering TPU vLLM Endpoint...")
     try:
-        endpoint = get_vllm_endpoint()
+        endpoint = await get_vllm_endpoint()
         print(f"  FOUND: {endpoint}")
     except Exception as e:
         print(f"  NOTICE: {e} (Discovery failed, using simulation mode)")
@@ -24,12 +24,12 @@ async def devops_demo():
     # Step 2: Log Analysis
     print("\n[Step 2] Analyzing Cloud Logging errors (severity=ERROR)...")
     # In a real demo, this queries the self-hosted Gemma 4 on TPU
-    analysis = await analyze_cloud_logging(filter_query="severity=ERROR", limit=2)
+    analysis = await analyze_cloud_logging(minutes=60)
     print(f"  ANALYSIS: {analysis[:300]}...")
 
     # Step 3: Deployment Config & TPU instructions
     print("\n[Step 3] Generating TPU v6e (Trillium) Deployment Config...")
-    config = get_vllm_deployment_config(
+    config = await get_vllm_deployment_config(
         service_name="vllm-gemma4-sre-agent",
         model_name="google/gemma-4-31B-it",
     )
