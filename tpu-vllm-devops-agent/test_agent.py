@@ -30,8 +30,8 @@ sys.modules["google.cloud.secretmanager"] = MagicMock()
 from server import (  # noqa: E402
     MODEL_NAME,
     get_vllm_deployment_config,
-    get_vllm_model_stats,
-    query_vllm_with_metrics,
+    get_model_details,
+    query_queued_gemma4_with_stats,
     save_hf_token,
     verify_model_health,
 )
@@ -43,9 +43,13 @@ class TestDevOpsAgent(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(MODEL_NAME, "google/gemma-4-31B-it")
 
     @patch("server.get_secret", new_callable=AsyncMock)
-    async def test_get_vllm_deployment_config(self, mock_get_secret):
+    @patch("server.run_command", new_callable=AsyncMock)
+    async def test_get_vllm_deployment_config(self, mock_run_command, mock_get_secret):
         """Test TPU deployment config generation."""
         mock_get_secret.return_value = "dummy-hf-token"
+        # Mock run_command to prevent actual gcloud calls during this test
+        mock_run_command.return_value = 0, "", "" 
+
         config = await get_vllm_deployment_config(service_name="test-vllm", model_name="google/gemma-4-31B-it")
         self.assertIn("gcloud alpha compute tpus tpu-vm create test-vllm", config)
         self.assertIn("--accelerator-type=v6e-8", config)
@@ -69,11 +73,11 @@ class TestDevOpsAgent(unittest.IsolatedAsyncioTestCase):
         mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
 
         result = await verify_model_health()
-        self.assertIn("PASSED", result)
+        self.assertIn("✅ Model health check PASSED.", result)
         self.assertIn("READY", result)
 
     @patch("server.get_vllm_client", new_callable=AsyncMock)
-    async def test_query_vllm_with_metrics_success(self, mock_get_client):
+    async def test_query_queued_gemma4_with_stats_success(self, mock_get_client):
         """Test query with performance metrics."""
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
@@ -92,45 +96,67 @@ class TestDevOpsAgent(unittest.IsolatedAsyncioTestCase):
         mock_stream.__aiter__.return_value = [chunk1, chunk2]
         mock_client.chat.completions.create = AsyncMock(return_value=mock_stream)
 
-        result = await query_vllm_with_metrics("Hi")
+        result = await query_queued_gemma4_with_stats("Hi")
         self.assertIn("Hello world", result)
-        self.assertIn("Performance Metrics", result)
+        self.assertIn("Performance Stats", result)
         self.assertIn("TTFT", result)
 
     @patch("server.discover_vllm_url", new_callable=AsyncMock)
     @patch("httpx.AsyncClient", autospec=True)
-    async def test_get_vllm_model_stats_success(self, mock_async_client, mock_discover_url):
+    async def test_get_model_details_success(self, mock_async_client, mock_discover_url):
         """Test retrieving model stats."""
         mock_discover_url.return_value = "http://test-url:8000"
 
         # Mock httpx.AsyncClient and its get method
         mock_client_instance = mock_async_client.return_value.__aenter__.return_value
 
-        mock_health_response = MagicMock()
-        mock_health_response.status_code = 200
-
         mock_models_response = MagicMock()
         mock_models_response.json.return_value = {"data": [{"id": "test-model", "max_model_len": 4096}]}
         mock_models_response.status_code = 200
+        
+        mock_version_response = MagicMock()
+        mock_version_response.json.return_value = {"version": "test-version"}
+        mock_version_response.status_code = 200
+        
+        mock_health_response = MagicMock()
+        mock_health_response.status_code = 200
+        
+        mock_metrics_response = MagicMock()
+        mock_metrics_response.text = "vllm_requests_running 1"
+        mock_metrics_response.status_code = 200
 
-        mock_client_instance.get.side_effect = [mock_health_response, mock_models_response]
+        mock_client_instance.get.side_effect = [
+            mock_models_response,
+            mock_version_response,
+            mock_health_response,
+            mock_metrics_response
+        ]
 
-        result = await get_vllm_model_stats()
-        self.assertIn("### 📈 Model Statistics", result)
+        result = await get_model_details()
+        self.assertIn("### 🧩 Model & vLLM Engine Details", result)
         self.assertIn("test-model", result)
-        self.assertIn("4096", result)
+        self.assertIn("test-version", result)
+        self.assertIn("Healthy", result)
+        self.assertIn("vllm_requests_running", result)
 
     @patch("server.secretmanager.SecretManagerServiceClient")
-    async def test_save_hf_token(self, mock_secret_client):
+    @patch("server.get_secret", new_callable=AsyncMock) # Mock get_secret to prevent actual calls
+    async def test_save_hf_token(self, mock_get_secret, mock_secret_client):
         """Test saving HF token to Secret Manager."""
         mock_instance = mock_secret_client.return_value
         mock_instance.add_secret_version.return_value.name = "projects/test-project/secrets/hf-token/versions/1"
 
-        # Test successful save (secret exists)
+        # Mock get_secret to simulate secret existence check.
+        # First call: simulate secret not found (raises exception)
+        # Second call: simulate secret found (returns a dummy secret)
+        mock_instance.get_secret.side_effect = [Exception("Secret not found"), MagicMock()]
+        mock_instance.create_secret.return_value = None # Mock create_secret if it doesn't exist
+
+        # Test successful save (secret is created and version added)
         result = await save_hf_token("test-token")
         self.assertIn("✅ Token saved.", result)
-
-        mock_instance.add_secret_version.assert_called()
+        mock_instance.create_secret.assert_called_once()
+        mock_instance.add_secret_version.assert_called_once()
 
 
 if __name__ == "__main__":

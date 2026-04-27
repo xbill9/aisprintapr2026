@@ -163,6 +163,87 @@ async def get_vllm_client() -> AsyncOpenAI:
     return AsyncOpenAI(base_url=f"{url}/v1", api_key="not-needed")
 
 
+@mcp.tool()
+async def get_vllm_deployment_config(
+    service_name: str = "vllm-gemma4",
+    model_name: str = MODEL_NAME,
+    tpu_type: str = "v6e-8",
+    runtime_version: str = "v2-alpha-tpuv6e",
+) -> str:
+    """Generates the exact `gcloud` command for manual TPU v6e deployment."""
+    gcloud_command = (
+        f"gcloud alpha compute tpus tpu-vm create {service_name} "
+        f"--zone={ZONE} "
+        f"--project={PROJECT_ID} "
+        f"--accelerator-type={tpu_type} "
+        f"--version={runtime_version} "
+        f"--metadata=startup-script='#!/bin/bash\\n"
+        f"sudo apt-get update && sudo apt-get install -y docker.io\\n"
+        f"sudo docker run --name vllm-gemma4 --privileged --net=host -d -v /dev/shm:/dev/shm --shm-size 10gb "
+        f"vllm/vllm-tpu:nightly vllm serve {model_name} "
+        f"--max-model-len 16384 --tensor-parallel-size 8 --disable_chunked_mm_input "
+        f"--max-num_batched_tokens 4096 --enable-auto-tool-choice --tool-call-parser gemma4 "
+        f"--reasoning-parser gemma4' "
+        f"--labels=purpose=manual-deployment"
+    )
+    return gcloud_command
+
+
+@mcp.tool()
+async def verify_model_health() -> str:
+    """Runs a deep logic check with latency reporting."""
+    try:
+        client = await get_vllm_client()
+        start_time = time.monotonic()
+        chat_completion = await client.chat.completions.create(
+            messages=[{"role": "user", "content": "Hello, is the model working?"}],
+            model=MODEL_NAME,
+            max_tokens=10,
+        )
+        end_time = time.monotonic()
+        latency = end_time - start_time
+        response_content = chat_completion.choices[0].message.content
+
+        if response_content:
+            return (
+                f"✅ Model health check PASSED.\\n"
+                f"Response: '{response_content[:50]}...\\n'"
+                f"Latency: {latency:.2f} seconds."
+            )
+        else:
+            return "❌ Model health check FAILED: Empty response."
+    except Exception as e:
+        return f"❌ Model health check FAILED: {e}"
+
+
+@mcp.tool()
+async def save_hf_token(token: str) -> str:
+    """Securely saves a Hugging Face API token to GCP Secret Manager."""
+    client = secretmanager.SecretManagerServiceClient()
+    secret_parent = f"projects/{PROJECT_ID}/secrets/{HF_SECRET_ID}"
+    
+    try:
+        # Check if the secret already exists
+        await asyncio.to_thread(client.get_secret, request={"name": secret_parent})
+    except Exception:
+        # If not, create it
+        await asyncio.to_thread(
+            client.create_secret,
+            request={
+                "parent": f"projects/{PROJECT_ID}",
+                "secret_id": HF_SECRET_ID,
+                "secret": {"replication": {"automatic": {}}},
+            },
+        )
+
+    # Add the new version
+    response = await asyncio.to_thread(
+        client.add_secret_version,
+        request={"parent": secret_parent, "payload": {"data": token.encode("UTF-8")}},
+    )
+    return f"✅ Token saved. Version: {response.name}"
+
+
 # --- MCP Tools ---
 
 
