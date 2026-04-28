@@ -1,29 +1,34 @@
 
+import pandas as pd
 import termplotlib as tpl
 import numpy as np
 
-# Data from the benchmark results
-ttft_labels = ["Mean TTFT", "Median TTFT", "P99 TTFT"]
-ttft_values = np.array([413.79, 408.13, 569.48])
+# Load the benchmark data
+try:
+    df = pd.read_csv("benchmark_results.csv")
+except FileNotFoundError:
+    print("Error: benchmark_results.csv not found.")
+    print("Please run the benchmark suite first.")
+    exit()
 
-tpot_labels = ["Mean TPOT", "Median TPOT", "P99 TPOT"]
-tpot_values = np.array([61.71, 61.89, 62.21])
-
-itl_labels = ["Mean ITL", "Median ITL", "P99 ITL"]
-itl_values = np.array([61.71, 61.98, 66.36])
+# Extract data for plotting
+concurrency = df["concurrency"].to_numpy()
+req_per_sec = df["req_per_sec"].to_numpy()
+tokens_per_sec = df["tokens_per_sec"].to_numpy()
+avg_latency = df["avg_latency"].to_numpy()
 
 # Create the plots
-print("--- Time to First Token (ms) ---")
+print("Request Throughput (req/s) vs. Concurrency")
 fig1 = tpl.figure()
-fig1.barh(ttft_values, ttft_labels, force_ascii=False)
+fig1.plot(concurrency, req_per_sec, label="req/s")
 fig1.show()
 
-print("\n--- Time per Output Token (ms) ---")
+print("Token Throughput (tok/s) vs. Concurrency")
 fig2 = tpl.figure()
-fig2.barh(tpot_values, tpot_labels, force_ascii=False)
+fig2.plot(concurrency, tokens_per_sec, label="tok/s")
 fig2.show()
 
-print("\n--- Inter-token Latency (ms) ---")
+print("Average Latency (s) vs. Concurrency")
 fig3 = tpl.figure()
-fig3.barh(itl_values, itl_labels, force_ascii=False)
+fig3.plot(concurrency, avg_latency, label="latency (s)")
 fig3.show()
