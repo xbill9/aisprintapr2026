@@ -343,9 +343,9 @@ async def manage_vllm_docker(resource_id: str = "vllm-gemma4-qr", action: str = 
         f"-e HF_HOME=/dev/shm -e HF_TOKEN=$(gcloud secrets versions access latest --secret=hf-token) "
         f"{docker_image} vllm serve {MODEL_NAME} "
         f"--tensor-parallel-size 4 --disable_chunked_mm_input --max_model_len=65536 "
-        f"--limit-mm-per-prompt image=0,audio=0 "
-        f"--max_num_batched_tokens 4096 --enable-auto-tool-choice --tool-call-parser gemma4 --reasoning-parser gemma4"
-    )
+        f"--max-num_batched_tokens 4096 --enable-auto-tool-choice --tool-call-parser gemma4 --reasoning-parser gemma4 "
+        f"--limit-mm-per-prompt '{{\"image\":0,\"audio\":0}}'"
+        )
 
     commands = {
         "start": f"sudo docker start vllm-gemma4 || {docker_run_cmd}",
