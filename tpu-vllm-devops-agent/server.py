@@ -342,7 +342,7 @@ async def manage_vllm_docker(resource_id: str = "vllm-gemma4-qr", action: str = 
         f"-v /dev/shm:/dev/shm --shm-size 10gb "
         f"-e HF_HOME=/dev/shm -e HF_TOKEN=$(gcloud secrets versions access latest --secret=hf-token) "
         f"{docker_image} vllm serve {MODEL_NAME} "
-        f"--max-model-len 16384 --tensor-parallel-size {TENSOR_PARALLEL_SIZE} --disable_chunked_mm_input "
+        f"--tensor-parallel-size {TENSOR_PARALLEL_SIZE} --disable_chunked_mm_input "
         f"--max_num_batched_tokens 4096 --enable-auto-tool-choice --tool-call-parser gemma4 --reasoning-parser gemma4"
     )
 
@@ -351,6 +351,8 @@ async def manage_vllm_docker(resource_id: str = "vllm-gemma4-qr", action: str = 
         "stop": "sudo docker stop vllm-gemma4",
         "restart": "sudo docker restart vllm-gemma4",
         "status": "sudo docker ps -a --filter name=vllm-gemma4",
+        "log": "sudo docker logs --tail 100 vllm-gemma4",
+        "rm": "sudo docker rm -f vllm-gemma4",
     }
 
     ssh_cmd = [
