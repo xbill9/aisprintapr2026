@@ -1,0 +1,13 @@
+model_list:
+  - model_name: "gemma4-tpu"
+    litellm_params:
+      model: "openai/google/gemma-4-31B-it" # Tell LiteLLM it's an OpenAI-style endpoint
+      api_base: "http://34.39.243.194:8000/v1" # Your TPU IP
+
+    router_settings:
+      model_group_alias:
+        # Map common Gemini model names to your TPU-hosted Gemma 4
+        "gemini-2.0-flash": "gemma4-tpu"
+        "gemini-2.0-flash-lite": "gemma4-tpu"
+        "gemini-1.5-flash": "gemma4-tpu"
+        "gemini-1.5-pro": "gemma4-tpu"

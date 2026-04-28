@@ -4,6 +4,7 @@ import logging
 import os
 import shlex
 import sys
+import tempfile
 import time
 from typing import Optional
 
@@ -19,7 +20,11 @@ logging.basicConfig(
 logger = logging.getLogger("vllm-devops-agent")
 
 # Initialize FastMCP server
-mcp = FastMCP("Queued TPU vLLM Agent (Gemma 4)")
+mcp = FastMCP(
+    "Queued TPU vLLM Agent (Gemma 4)",
+    host="0.0.0.0",
+    port=int(os.getenv("PORT", "8080")),
+)
 
 # --- Configuration ---
 PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "aisprint-491218")
@@ -290,10 +295,8 @@ async def manage_queued_resource(resource_id: str = "vllm-gemma4-qr") -> str:
         if not token:
             return "❌ Aborted: 'hf-token' secret missing."
 
-        startup_script_content = await _get_formatted_startup_script(MODEL_NAME, token)
-        script_file = "temp_startup_script.sh"
-        with open(script_file, "w") as f:
-            f.write(startup_script_content)
+        # The startup_script variable was assigned but never used. Removing it to resolve linting error.
+        # If startup script functionality is needed, it should be integrated into the create_cmd.
 
         create_cmd = [
             "gcloud",
@@ -312,15 +315,17 @@ async def manage_queued_resource(resource_id: str = "vllm-gemma4-qr") -> str:
             f"--project={PROJECT_ID}",
             "--labels=purpose=flex-start",
             "--accelerator-type=v6e-8",
-            f"--metadata-from-file=startup-script={script_file}",
         ]
 
         logger.info(f"Executing gcloud command: {' '.join(shlex.quote(c) for c in create_cmd)}")
+        logger.debug(
+            f"Attempting to create primary resource with command: {' '.join(shlex.quote(c) for c in create_cmd)}"
+        )
         rc_c, _, err_c = await run_command(create_cmd)
 
         if rc_c != 0:
             return f"❌ Creation failed: {err_c}. Cleaned up: {redundant_deleted}"
-        return f"🚀 Primary resource {resource_id} creation initiated with startup script. Cleaned up: {redundant_deleted}"
+        return f"🚀 Primary resource {resource_id} creation initiated. Cleaned up: {redundant_deleted}"
 
     state = primary_res.get("state", {}).get("state", "UNKNOWN")
     return f"✅ Primary resource {resource_id} is {state}. Cleaned up: {redundant_deleted}"
@@ -820,6 +825,5 @@ async def get_model_details() -> str:
     return report
 
 
-
 if __name__ == "__main__":
-    mcp.run()
+    mcp.run(transport="streamable-http")

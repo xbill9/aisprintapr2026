@@ -1,0 +1,10 @@
+mcp
+fastmcp
+pydantic
+python-json-logger
+google-cloud-secret-manager
+openai
+httpx
+google-cloud-logging
+uvicorn
+starlette

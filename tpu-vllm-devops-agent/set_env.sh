@@ -26,8 +26,10 @@ else
     echo "$GOOGLE_API_KEY" > "$HOME/gemini.key"
 fi
 
+export MCP_SERVER_URL=https://mcp-https-python-wgcq55zbfq-rj.a.run.app/mcp
+
 cat <<EOF > .env
-GOOGLE_GENAI_USE_VERTEXAI=false
+GOOGLE_GENAI_USE_VERTEXAI=true
 GOOGLE_CLOUD_PROJECT=$PROJECT_ID
 GOOGLE_CLOUD_LOCATION=southamerica-east1
 GOOGLE_CLOUD_REGION=southamerica-east1
@@ -36,6 +38,7 @@ MODEL=google/gemma-4-31B-it
 GENAI_MODEL="gemini-2.5-flash"
 GOOGLE_API_KEY=$GOOGLE_API_KEY
 GEMINI_API_KEY=$GOOGLE_API_KEY
+MCP_SERVER_URL=$MCP_SERVER_URL
 EOF
 
 source .env

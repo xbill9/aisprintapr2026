@@ -42,7 +42,9 @@ You can configure the following variables for the MCP server:
     -   `--max-model-len 16384`
     -   `--disable_chunked_mm_input`
     -   `--max_num_batched_tokens 4096` (required for multimodal compatibility)
+    -   `--limit-mm-per-prompt '{"image":4,"audio":1}'` (JSON format required in nightly)
 -   **Tooling:** Enable `--enable-auto-tool-choice`, `--tool-call-parser gemma4`, and `--reasoning-parser gemma4`.
+-   **Image:** `vllm/vllm-tpu:nightly` (v0.19.2+ recommended) is preferred for stable Gemma 4 support.
 
 ## Flex-start VMs
 Our stack leverages **Flex-start VMs** (via the `v2-alpha-tpuv6e` runtime) to maximize TPU availability and minimize costs.

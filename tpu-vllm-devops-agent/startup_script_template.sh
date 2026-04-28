@@ -96,10 +96,10 @@ sudo docker run --name vllm-gemma4 --privileged --net=host -d \
   --max-model-len "$VLLM_MAX_MODEL_LEN" \
   --tensor-parallel-size "$VLLM_TP_SIZE" \
   --disable_chunked_mm_input \
-  --max_num_batched_tokens 4096 \\
-  --enable-auto-tool-choice \\
-  --tool-call-parser gemma4 \\
-  --reasoning-parser gemma4 \\
+  --max_num_batched_tokens 4096 \
+  --enable-auto-tool-choice \
+  --tool-call-parser gemma4 \
+  --reasoning-parser gemma4 \
   --verbose
 
 if [ $? -ne 0 ]; then
