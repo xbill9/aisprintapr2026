@@ -18,7 +18,7 @@ To deploy and run this project, you need to address two main components: the **I
 
 ### 1. Infrastructure Requirements (The Inference Stack)
 The MCP server expects a running vLLM instance. Your TPU deployment for the model needs:
-*   **Hardware:** Cloud TPU v6e (Trillium) with topology `2x4` (8 chips).
+*   **Hardware:** Cloud TPU v6e (Trillium) 
 *   **Software:** `vllm/vllm-tpu:nightly` specialized container (v0.19.2+ recommended for Gemma 4 fixes).
 *   **Model:** `google/gemma-4-31B-it` (Hugging Face ID).
 *   **Runtime:** `v2-alpha-tpuv6e` for Flex-start / Queued Resources.
