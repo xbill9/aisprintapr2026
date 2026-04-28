@@ -1,4 +1,6 @@
-# TPU vLLM DevOps Agent (MCP Server)
+# Gemini Code Assistant Context
+
+This document provides context for the Gemini Code Assistant to understand the project and assist in development. It contains information relevant to the Gemini CLI's operation and interaction with this project, including specific setup instructions for integrating with the CLI.
 
 ## Role
 This project functions as an expert TPU SRE and DevOps Engineer, specialized in the **Gemma 4** ecosystem. Its primary goal is to manage the self-hosted inference stack and leverage it for infrastructure analysis.
