@@ -12,6 +12,14 @@ The Gemma 4 inference stack is currently deployed and active on TPU v6e-8.
 *   **Active Endpoint:** `http://YOUR_TPU_IP_ADDRESS:8000`
 *   **Model:** `google/gemma-4-31B-it`
 
+vLLM recipes
+* https://github.com/AI-Hypercomputer/tpu-recipes/blob/main/inference/trillium/vLLM/Gemma4/README.md
+
+vLLM github
+* https://github.com/vllm-project/vllm/releases
+
+never destroy the queued resource without explicit asking for it
+
 ## 🚀 Deployment Requirements
 
 To deploy and run this project, you need to address two main components: the **Inference Stack** (vLLM on TPU v6e) and the **MCP Server** itself.
@@ -140,6 +148,7 @@ The following tools are available via the MCP server:
 *   **`describe_queued_resource`**: Fetches detailed JSON status for a specific TPU resource.
 *   **`check_tpu_availability`**: Simple check to see if a TPU resource is `ACTIVE`.
 *   **`destroy_queued_resource`**: Safely deletes a TPU resource and its node.
+*   **`manage_vllm_docker`**: Manages the vLLM Docker container on the TPU VM (`start`, `stop`, `restart`, `status`, `log`, and `rm` actions).
 
 ### Observability & Performance
 *   **`get_system_status`**: Provides a high-level dashboard of TPU quota and vLLM health.

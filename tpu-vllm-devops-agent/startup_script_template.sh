@@ -51,8 +51,8 @@ set -e # Re-enable exit on error
 # Set vLLM environment variables
 echo "Setting vLLM environment variables..."
 VLLM_MODEL="{model_name}"
-VLLM_MAX_MODEL_LEN="16384"
-VLLM_TP_SIZE="8"
+VLLM_MAX_MODEL_LEN="65536"
+VLLM_TP_SIZE="4"
 VLLM_MAX_BATCHED_TOKENS="4096"
 {limit_mm_per_prompt_env}
 HF_HOME="/dev/shm"

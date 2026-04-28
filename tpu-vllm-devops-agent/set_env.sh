@@ -31,9 +31,9 @@ export MCP_SERVER_URL=https://mcp-https-python-wgcq55zbfq-rj.a.run.app/mcp
 cat <<EOF > .env
 GOOGLE_GENAI_USE_VERTEXAI=true
 GOOGLE_CLOUD_PROJECT=$PROJECT_ID
-GOOGLE_CLOUD_LOCATION=us-central1
-GOOGLE_CLOUD_REGION=us-central1
-GOOGLE_CLOUD_ZONE=us-central1-b
+GOOGLE_CLOUD_LOCATION=southamerica-east1
+GOOGLE_CLOUD_REGION=southamerica-east1
+GOOGLE_CLOUD_ZONE=southamerica-east1-c
 MODEL=google/gemma-4-31B-it
 GENAI_MODEL="gemini-2.5-flash"
 GOOGLE_API_KEY=$GOOGLE_API_KEY
@@ -43,6 +43,7 @@ ACCELERATOR_TYPE=v6e-4
 TENSOR_PARALLEL_SIZE=4
 EOF
 
+echo "Sourcing Env"
 source .env
 
 echo "Current Environment"

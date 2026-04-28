@@ -20,11 +20,7 @@ logging.basicConfig(
 logger = logging.getLogger("vllm-devops-agent")
 
 # Initialize FastMCP server
-mcp = FastMCP(
-    "Queued TPU vLLM Agent (Gemma 4)",
-    host="0.0.0.0",
-    port=int(os.getenv("PORT", "8080")),
-)
+mcp = FastMCP("Queued TPU vLLM Agent (Gemma 4)")
 
 # --- Configuration ---
 PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "aisprint-491218")
@@ -33,7 +29,7 @@ REGION = os.getenv("GOOGLE_CLOUD_REGION", "southamerica-east1")
 MODEL_NAME = os.getenv("MODEL_NAME", "google/gemma-4-31B-it")
 HF_SECRET_ID = "hf-token"
 ACCELERATOR_TYPE = os.getenv("ACCELERATOR_TYPE", "v6e-8")
-TENSOR_PARALLEL_SIZE = int(os.getenv("TENSOR_PARALLEL_SIZE", "8"))
+TENSOR_PARALLEL_SIZE = int(os.getenv("TENSOR_PARALLEL_SIZE", "4"))
 
 # --- Helper Functions ---
 
@@ -356,6 +352,8 @@ async def manage_vllm_docker(resource_id: str = "vllm-gemma4-qr", action: str = 
         "stop": "sudo docker stop vllm-gemma4",
         "restart": "sudo docker restart vllm-gemma4",
         "status": "sudo docker ps -a --filter name=vllm-gemma4",
+        "log": "sudo docker logs --tail 100 vllm-gemma4",
+        "rm": "sudo docker rm -f vllm-gemma4",
     }
 
     ssh_cmd = [

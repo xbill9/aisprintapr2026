@@ -84,6 +84,7 @@ The following tools are available via the MCP server:
 *   **`describe_queued_resource`**: Fetches detailed JSON status for a specific TPU resource.
 *   **`check_tpu_availability`**: Simple check to see if a TPU resource is `ACTIVE`.
 *   **`destroy_queued_resource`**: Safely deletes a TPU resource and its node.
+*   **`manage_vllm_docker`**: Manages the vLLM Docker container on the TPU VM (`start`, `stop`, `restart`, `status`, `log`, and `rm` actions).
 
 ### Observability & Performance
 *   **`get_system_status`**: Provides a high-level dashboard of TPU quota and vLLM health.
