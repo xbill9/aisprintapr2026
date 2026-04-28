@@ -469,7 +469,7 @@ async def estimate_deployment_cost(
     hours: float = 1.0, tpu_type: str = "v6e", topology: str = "2x4", is_flex: bool = True
 ) -> str:
     """Estimates the cost of a TPU deployment."""
-    rates = {"v6e": 0.15, "v5e": 0.12, "v5p": 0.60}  # Flex-start rates
+    rates = {"v6e": 1.35, "v5e": 0.12, "v5p": 0.60}  # Flex-start rates
     rate = rates.get(tpu_type, rates["v6e"]) * (1 if is_flex else 2)
 
     try:
@@ -615,6 +615,7 @@ async def run_vllm_benchmark(
     num_prompts: int = 100,
     random_input_len: int = 1024,
     random_output_len: int = 128,
+    max_concurrency: Optional[int] = None,
 ) -> str:
     """Runs vLLM's internal benchmark tool inside the container on the TPU VM."""
     node_id = await _get_node_id(resource_id)
@@ -622,14 +623,25 @@ async def run_vllm_benchmark(
         return f"❌ Could not find node for resource {resource_id}. Ensure it is ACTIVE."
 
     benchmark_cmd = (
-        f"python -m vllm.bench.benchmark_throughput "
+        "vllm bench serve "
         f"--backend {backend} "
         f"--model {model} "
         f"--dataset-name {dataset_name} "
         f"--num-prompts {num_prompts} "
-        f"--input-len {random_input_len} "
-        f"--output-len {random_output_len}"
+        f"--random-input-len {random_input_len} "
+        f"--random-output-len {random_output_len}"
     )
+    if max_concurrency:
+        benchmark_cmd += f" --max-concurrency {max_concurrency}"
+
+    # We run the benchmark in a new container to not interfere with the serving container
+    docker_cmd = (
+        "sudo docker run --rm --privileged --net=host "
+        "-v /dev/shm:/dev/shm --shm-size 10gb "
+        "-e HF_TOKEN=$(gcloud secrets versions access latest --secret=hf-token) "
+        f"vllm/vllm-tpu:nightly {benchmark_cmd}"
+    )
+
 
     ssh_cmd = [
         "gcloud",
@@ -641,10 +653,10 @@ async def run_vllm_benchmark(
         f"--zone={ZONE}",
         f"--project={PROJECT_ID}",
         "--command",
-        f"sudo docker exec vllm-gemma4 {benchmark_cmd}",
+        docker_cmd,
     ]
 
-    rc, out, err = await run_command(ssh_cmd, timeout=300)  # Increased timeout for benchmark
+    rc, out, err = await run_command(ssh_cmd, timeout=600)  # Increased timeout for benchmark
     if rc != 0:
         return f"""⚠️ Benchmark failed on {node_id}.
 Error: {err}
