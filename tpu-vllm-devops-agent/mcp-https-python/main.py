@@ -32,6 +32,8 @@ ZONE = os.getenv("GOOGLE_CLOUD_ZONE", "southamerica-east1-c")
 REGION = os.getenv("GOOGLE_CLOUD_REGION", "southamerica-east1")
 MODEL_NAME = os.getenv("MODEL_NAME", "google/gemma-4-31B-it")
 HF_SECRET_ID = "hf-token"
+ACCELERATOR_TYPE = os.getenv("ACCELERATOR_TYPE", "v6e-8")
+TENSOR_PARALLEL_SIZE = int(os.getenv("TENSOR_PARALLEL_SIZE", "8"))
 
 # --- Helper Functions ---
 
@@ -295,8 +297,10 @@ async def manage_queued_resource(resource_id: str = "vllm-gemma4-qr") -> str:
         if not token:
             return "❌ Aborted: 'hf-token' secret missing."
 
-        # The startup_script variable was assigned but never used. Removing it to resolve linting error.
-        # If startup script functionality is needed, it should be integrated into the create_cmd.
+        startup_script_content = await _get_formatted_startup_script(MODEL_NAME, token)
+        script_file = "temp_startup_script.sh"
+        with open(script_file, "w") as f:
+            f.write(startup_script_content)
 
         create_cmd = [
             "gcloud",
@@ -314,18 +318,16 @@ async def manage_queued_resource(resource_id: str = "vllm-gemma4-qr") -> str:
             "--valid-until-duration=4h",
             f"--project={PROJECT_ID}",
             "--labels=purpose=flex-start",
-            "--accelerator-type=v6e-8",
+            f"--accelerator-type={ACCELERATOR_TYPE}",
+            f"--metadata-from-file=startup-script={script_file}",
         ]
 
         logger.info(f"Executing gcloud command: {' '.join(shlex.quote(c) for c in create_cmd)}")
-        logger.debug(
-            f"Attempting to create primary resource with command: {' '.join(shlex.quote(c) for c in create_cmd)}"
-        )
         rc_c, _, err_c = await run_command(create_cmd)
 
         if rc_c != 0:
             return f"❌ Creation failed: {err_c}. Cleaned up: {redundant_deleted}"
-        return f"🚀 Primary resource {resource_id} creation initiated. Cleaned up: {redundant_deleted}"
+        return f"🚀 Primary resource {resource_id} creation initiated with startup script. Cleaned up: {redundant_deleted}"
 
     state = primary_res.get("state", {}).get("state", "UNKNOWN")
     return f"✅ Primary resource {resource_id} is {state}. Cleaned up: {redundant_deleted}"
@@ -344,8 +346,8 @@ async def manage_vllm_docker(resource_id: str = "vllm-gemma4-qr", action: str = 
         f"sudo docker run --name vllm-gemma4 --privileged --net=host -d "
         f"-v /dev/shm:/dev/shm --shm-size 10gb "
         f"-e HF_HOME=/dev/shm -e HF_TOKEN=$(gcloud secrets versions access latest --secret=hf-token) "
-        f"{docker_image} vllm serve {MODEL_NAME} "
-        f"--max-model-len 16384 --tensor-parallel-size 8 --disable_chunked_mm_input "
+        f"{docker_image} vllm serve --host 0.0.0.0 --port 8000 {MODEL_NAME} "
+        f"--max-model-len 16384 --tensor-parallel-size {TENSOR_PARALLEL_SIZE} --disable_chunked_mm_input "
         f"--max_num_batched_tokens 4096 --enable-auto-tool-choice --tool-call-parser gemma4 --reasoning-parser gemma4"
     )
 
@@ -474,7 +476,7 @@ async def estimate_deployment_cost(
     hours: float = 1.0, tpu_type: str = "v6e", topology: str = "2x4", is_flex: bool = True
 ) -> str:
     """Estimates the cost of a TPU deployment."""
-    rates = {"v6e": 0.15, "v5e": 0.12, "v5p": 0.60}  # Flex-start rates
+    rates = {"v6e": 1.35, "v5e": 0.12, "v5p": 0.60}  # Flex-start rates
     rate = rates.get(tpu_type, rates["v6e"]) * (1 if is_flex else 2)
 
     try:

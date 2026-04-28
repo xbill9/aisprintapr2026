@@ -27,6 +27,8 @@ ZONE = os.getenv("GOOGLE_CLOUD_ZONE", "southamerica-east1-c")
 REGION = os.getenv("GOOGLE_CLOUD_REGION", "southamerica-east1")
 MODEL_NAME = os.getenv("MODEL_NAME", "google/gemma-4-31B-it")
 HF_SECRET_ID = "hf-token"
+ACCELERATOR_TYPE = os.getenv("ACCELERATOR_TYPE", "v6e-8")
+TENSOR_PARALLEL_SIZE = int(os.getenv("TENSOR_PARALLEL_SIZE", "8"))
 
 # --- Helper Functions ---
 
@@ -311,7 +313,7 @@ async def manage_queued_resource(resource_id: str = "vllm-gemma4-qr") -> str:
             "--valid-until-duration=4h",
             f"--project={PROJECT_ID}",
             "--labels=purpose=flex-start",
-            "--accelerator-type=v6e-8",
+            f"--accelerator-type={ACCELERATOR_TYPE}",
             f"--metadata-from-file=startup-script={script_file}",
         ]
 
@@ -340,7 +342,7 @@ async def manage_vllm_docker(resource_id: str = "vllm-gemma4-qr", action: str = 
         f"-v /dev/shm:/dev/shm --shm-size 10gb "
         f"-e HF_HOME=/dev/shm -e HF_TOKEN=$(gcloud secrets versions access latest --secret=hf-token) "
         f"{docker_image} vllm serve {MODEL_NAME} "
-        f"--max-model-len 16384 --tensor-parallel-size 8 --disable_chunked_mm_input "
+        f"--max-model-len 16384 --tensor-parallel-size {TENSOR_PARALLEL_SIZE} --disable_chunked_mm_input "
         f"--max_num_batched_tokens 4096 --enable-auto-tool-choice --tool-call-parser gemma4 --reasoning-parser gemma4"
     )
 

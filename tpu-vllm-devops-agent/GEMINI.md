@@ -9,7 +9,7 @@ This project provides an automated DevOps/SRE assistant that leverages **Gemma 4
 
 ## 🟢 Current Status: ONLINE
 The Gemma 4 inference stack is currently deployed and active on TPU v6e-8.
-*   **Active Endpoint:** `http://35.222.239.170:8000`
+*   **Active Endpoint:** `http://YOUR_TPU_IP_ADDRESS:8000`
 *   **Model:** `google/gemma-4-31B-it`
 
 ## 🚀 Deployment Requirements
@@ -91,7 +91,7 @@ model_list:
   - model_name: "gemma4-tpu"
     litellm_params:
       model: "openai/google/gemma-4-31B-it" # Tell LiteLLM it's an OpenAI-style endpoint
-      api_base: "http://35.222.239.170:8000/v1" # Your TPU IP
+      api_base: "http://YOUR_TPU_IP_ADDRESS:8000/v1" # Your TPU IP
       api_key: "none" # vLLM doesn't require a key by default
     router_settings:
       model_group_alias:
