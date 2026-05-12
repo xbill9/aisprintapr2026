@@ -1,7 +1,7 @@
 # 🚀 Gemma 4 TPU v6e-4 Performance Report
 
 ## 📋 Deployment Overview
-- **Model:** google/gemma-4-31B-it
+- **Model:** google/gemma-4-26B-A4B-it
 - **Hardware:** Cloud TPU v6e-4 (Trillium)
 - **Runtime:** v2-alpha-tpuv6e (Flex-start)
 - **TPU Location:** southamerica-east1-c

@@ -26,7 +26,7 @@ mcp = FastMCP("gemma4")
 PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "aisprint-491218")
 ZONE = os.getenv("GOOGLE_CLOUD_ZONE", "southamerica-east1-c")
 REGION = os.getenv("GOOGLE_CLOUD_REGION", "southamerica-east1")
-MODEL_NAME = os.getenv("MODEL_NAME", "google/gemma-4-31B-it")
+MODEL_NAME = "google/gemma-4-26B-A4B-it"
 HF_SECRET_ID = "hf-token"
 ACCELERATOR_TYPE = os.getenv("ACCELERATOR_TYPE", "v6e-4")
 TENSOR_PARALLEL_SIZE = int(os.getenv("TENSOR_PARALLEL_SIZE", "4"))
@@ -117,6 +117,7 @@ async def _get_formatted_startup_script(model_name: str, hf_token: str) -> str:
             zone=ZONE,
             model_name=model_name,
             hf_token=hf_token,
+            tensor_parallel_size=TENSOR_PARALLEL_SIZE,
         )
     except Exception as e:
         logger.error(f"Error formatting startup script: {e}")
@@ -247,7 +248,7 @@ async def destroy_queued_resource(resource_id: str) -> str:
 
 
 @mcp.tool()
-async def manage_queued_resource(resource_id: str = "vllm-gemma4-qr") -> str:
+async def manage_queued_resource(resource_id: str = "vllm-gemma4-q4") -> str:
     """Ensures the primary Queued Resource exists and cleans up redundant ones."""
     list_cmd = [
         "gcloud",
@@ -332,7 +333,7 @@ async def manage_queued_resource(resource_id: str = "vllm-gemma4-qr") -> str:
 
 
 @mcp.tool()
-async def manage_vllm_docker(resource_id: str = "vllm-gemma4-qr", action: str = "start") -> str:
+async def manage_vllm_docker(resource_id: str = "vllm-gemma4-q4", action: str = "start") -> str:
     """Manages the vLLM Docker container on the TPU VM."""
     node_id = await _get_node_id(resource_id)
     if not node_id:
@@ -345,7 +346,7 @@ async def manage_vllm_docker(resource_id: str = "vllm-gemma4-qr", action: str = 
         f"-v /dev/shm:/dev/shm --shm-size 10gb "
         f"-e HF_HOME=/dev/shm -e HF_TOKEN=$(gcloud secrets versions access latest --secret=hf-token) "
         f"{docker_image} vllm serve --host 0.0.0.0 --port 8000 {MODEL_NAME} "
-        f"--max-model-len 16384 --tensor-parallel-size {TENSOR_PARALLEL_SIZE} --disable_chunked_mm_input "
+        f"--max-model-len 16384 --dtype bf16 --tensor-parallel-size {TENSOR_PARALLEL_SIZE} --disable_chunked_mm_input "
         f"--max_num_batched_tokens 4096 --enable-auto-tool-choice --tool-call-parser gemma4 --reasoning-parser gemma4"
     )
 
@@ -404,7 +405,7 @@ async def list_queued_resources(zone: str = ZONE) -> str:
 
 
 @mcp.tool()
-async def describe_queued_resource(resource_id: str = "vllm-gemma4-qr", zone: str = ZONE) -> str:
+async def describe_queued_resource(resource_id: str = "vllm-gemma4-q4", zone: str = ZONE) -> str:
     """Provides detailed information about a specific Queued Resource."""
     cmd = [
         "gcloud",
@@ -439,7 +440,7 @@ async def describe_queued_resource(resource_id: str = "vllm-gemma4-qr", zone: st
 
 
 @mcp.tool()
-async def get_reservation_status(resource_id: str = "vllm-gemma4-qr") -> str:
+async def get_reservation_status(resource_id: str = "vllm-gemma4-q4") -> str:
     """Checks the lifecycle state and expiry time of a Queued Resource."""
     # This function can be simplified if `describe_queued_resource` is sufficient
     return await describe_queued_resource(resource_id)
@@ -615,9 +616,9 @@ async def query_queued_gemma4_with_stats(prompt: str) -> str:
 
 @mcp.tool()
 async def run_vllm_benchmark(
-    resource_id: str = "vllm-gemma4-qr",
+    resource_id: str = "vllm-gemma4-q4",
     backend: str = "vllm",
-    model: str = "google/gemma-4-31B-it",
+    model: str = "google/gemma-4-26B-A4B-it",
     dataset_name: str = "random",
     num_prompts: int = 100,
     random_input_len: int = 1024,
@@ -676,7 +677,7 @@ async def run_context_benchmark(
     max_context: int = 16384,
     steps: int = 10,
     concurrency: str = "1",
-    model: str = "google/gemma-4-31B-it",
+    model: str = "google/gemma-4-26B-A4B-it",
 ) -> str:
     """
     Runs a benchmark across varying prompt lengths up to the maximum context.
@@ -736,7 +737,7 @@ async def run_context_benchmark(
 
 
 @mcp.tool()
-async def get_vllm_docker_logs(resource_id: str = "vllm-gemma4-qr", tail: Optional[int] = None) -> str:
+async def get_vllm_docker_logs(resource_id: str = "vllm-gemma4-q4", tail: Optional[int] = None) -> str:
     """Retrieves logs from the vLLM Docker container on the TPU VM."""
     node_id = await _get_node_id(resource_id)
     if not node_id:
@@ -769,7 +770,7 @@ Error: {err}"""
 
 @mcp.tool()
 async def get_tpu_system_logs(
-    resource_id: str = "vllm-gemma4-qr", service: str = "docker", tail: Optional[int] = None
+    resource_id: str = "vllm-gemma4-q4", service: str = "docker", tail: Optional[int] = None
 ) -> str:
     """Retrieves systemd logs for a specific service from the TPU VM."""
     node_id = await _get_node_id(resource_id)

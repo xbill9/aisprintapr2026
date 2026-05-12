@@ -3,10 +3,9 @@ import asyncio
 import time
 from datetime import datetime
 from typing import Any, Dict, List
-
 import httpx
 import pandas as pd
-
+import os
 
 class ContextBenchmark:
     def __init__(self, base_url: str, model: str):
@@ -79,78 +78,75 @@ class ContextBenchmark:
             "prefill_tps": total_tokens / batch_duration if batch_duration > 0 else 0
         }
 
-    async def run_sweep(self, lengths: List[int], concurrencies: List[int], output_file: str):
-        print(f"🚀 Starting Multi-Dimensional Sweep on {self.base_url}")
-        print(f"🤖 Model: {self.model}")
-        print(f"👥 Concurrencies: {concurrencies}")
-        print(f"📊 Testing {len(lengths)} length points...")
-
-        results = []
-        async with httpx.AsyncClient() as client:
-            for concurrency in concurrencies:
-                print(f"\n👥 Testing Concurrency: {concurrency}")
-                for length in lengths:
-                    res = await self.run_single_test(client, length, concurrency)
-                    if res["success"]:
-                        print(f"  ✅ Len: {res['target_len']} | Avg TTFT: {res['avg_ttft']:.3f}s | Batch Prefill: {res['prefill_tps']:.2f} tok/s")
-                        results.append(
-                            {
-                                "timestamp": datetime.now().isoformat(),
-                                "model": self.model,
-                                "prompt_tokens": res["target_len"],
-                                "concurrency": res["concurrency"],
-                                "avg_ttft": res["avg_ttft"],
-                                "batch_duration": res["batch_duration"],
-                                "prefill_tps": res["prefill_tps"]
-                            }
-                        )
-                    else:
-                        print(f"  ❌ Target {length} failed: {res['error']}")
-
-        if results:
-            df = pd.DataFrame(results)
-            df.to_csv(output_file, index=False)
-            json_file = output_file.replace(".csv", ".json")
-            df.to_json(json_file, orient="records", indent=2)
-            
-            print(f"\n📊 Results saved to {output_file} and {json_file}")
-
-            print("\n### 📈 Benchmark Summary Table (Markdown)")
-            # Show a pivot-like view or just the full table if manageable
-            markdown_table = df[["prompt_tokens", "concurrency", "avg_ttft", "prefill_tps"]].to_markdown(index=False)
-            print(markdown_table)
-            return markdown_table
-        else:
-            print("\n❌ No successful results.")
-            return None
-
-
 async def main():
-    parser = argparse.ArgumentParser(description="Gemma 4 Context Length Benchmark")
+    parser = argparse.ArgumentParser(description="Gemma 4 Comprehensive Benchmark")
     parser.add_argument("--url", type=str, required=True, help="vLLM Endpoint URL")
     parser.add_argument("--model", type=str, default="google/gemma-4-26B-A4B-it")
-    parser.add_argument("--max-context", type=int, default=16384, help="Max context length to test")
-    parser.add_argument("--steps", type=int, default=10, help="Number of steps")
-    parser.add_argument("--concurrency", type=str, default="1", help="Comma-separated list of concurrent requests")
-    parser.add_argument("--output", type=str, default="context_benchmark_results.csv")
+    parser.add_argument("--output", type=str, default="comprehensive_benchmark_results.csv")
     args = parser.parse_args()
 
-    concurrencies = [int(c.strip()) for c in args.concurrency.split(",")]
-
-    # Generate lengths: linear steps
-    step_size = max(1, args.max_context // args.steps)
-    lengths = list(range(step_size, args.max_context + 1, step_size))
-
-    # Ensure baseline is included
-    if 128 not in lengths and 128 < args.max_context:
-        lengths.insert(0, 128)
-
-    if lengths and lengths[-1] != args.max_context:
-        lengths.append(args.max_context)
+    concurrencies = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
+    lengths = [1024, 2048, 4096, 8192, 16384, 32768, 65500, 131000]
 
     benchmark = ContextBenchmark(args.url, args.model)
-    await benchmark.run_sweep(lengths, concurrencies, args.output)
+    results = []
+    
+    print(f"🚀 Starting Comprehensive Sweep on {args.url}")
+    print(f"🤖 Model: {args.model}")
+    
+    async with httpx.AsyncClient() as client:
+        for concurrency in concurrencies:
+            print(f"\n👥 Testing Concurrency: {concurrency}")
+            for length in lengths:
+                # To prevent unnecessary long waits for configurations that will definitely fail,
+                # we can skip if the previous smaller length already failed with OOM.
+                # However, for a benchmark, it's better to try and record the failure.
+                
+                print(f"  ⏳ Testing Len: {length}...", end="", flush=True)
+                res = await benchmark.run_single_test(client, length, concurrency)
+                
+                if res["success"]:
+                    print(f" ✅ Avg TTFT: {res['avg_ttft']:.3f}s | Prefill: {res['prefill_tps']:.2f} tok/s")
+                    results.append({
+                        "timestamp": datetime.now().isoformat(),
+                        "model": args.model,
+                        "prompt_tokens": length,
+                        "concurrency": concurrency,
+                        "avg_ttft": res["avg_ttft"],
+                        "batch_duration": res["batch_duration"],
+                        "prefill_tps": res["prefill_tps"],
+                        "status": "success"
+                    })
+                else:
+                    print(f" ❌ Failed: {res['error']}")
+                    results.append({
+                        "timestamp": datetime.now().isoformat(),
+                        "model": args.model,
+                        "prompt_tokens": length,
+                        "concurrency": concurrency,
+                        "avg_ttft": None,
+                        "batch_duration": None,
+                        "prefill_tps": 0,
+                        "status": "failed",
+                        "error": res["error"]
+                    })
+                    # If it fails with a status code like 413 or 422 or certain connection errors, 
+                    # we might want to stop the length sweep for this concurrency.
+                    if "Status 429" in res["error"] or "Status 503" in res["error"]:
+                        print("  🛑 High load detected, skipping remaining lengths for this concurrency.")
+                        break
 
+            # Save intermediate results
+            pd.DataFrame(results).to_csv(args.output, index=False)
+
+    if results:
+        df = pd.DataFrame(results)
+        df.to_csv(args.output, index=False)
+        json_file = args.output.replace(".csv", ".json")
+        df.to_json(json_file, orient="records", indent=2)
+        print(f"\n📊 Final results saved to {args.output} and {json_file}")
+    else:
+        print("\n❌ No results gathered.")
 
 if __name__ == "__main__":
     asyncio.run(main())

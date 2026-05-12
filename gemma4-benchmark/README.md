@@ -6,9 +6,9 @@ This project functions as an expert TPU SRE and DevOps Engineer, specialized in 
 This project provides an automated DevOps/SRE assistant that leverages **Gemma 4 models self-hosted via vLLM on Cloud TPUs**. It bridges Google Cloud Logging with a private inference endpoint to analyze infrastructure issues and suggest remediations.
 
 ## 🟢 Current Status: ONLINE
-The Gemma 4 inference stack is currently deployed and active on TPU v6e-4.
+The Gemma 4 inference stack is currently deployed and active on TPU v6e-8.
 *   **Active Endpoint:** `http://YOUR_TPU_IP_ADDRESS:8000`
-*   **Model:** `google/gemma-4-31B-it`
+*   **Model:** `google/gemma-4-26B-A4B-it`
 
 ## 🚀 Deployment Requirements
 
@@ -16,9 +16,9 @@ To deploy and run this project, you need to address two main components: the **I
 
 ### 1. Infrastructure Requirements (The Inference Stack)
 The MCP server expects a running vLLM instance. Your TPU deployment for the model needs:
-*   **Hardware:** Cloud TPU v6e (Trillium) with topology `1x4` (8 chips).
+*   **Hardware:** Cloud TPU v6e (Trillium) with topology `2x4` (8 chips).
 *   **Software:** `vllm/vllm-tpu:nightly` specialized container (v0.19.2+ recommended for Gemma 4 fixes).
-*   **Model:** `google/gemma-4-31B-it` (Hugging Face ID).
+*   **Model:** `google/gemma-4-26B-A4B-it` (Hugging Face ID).
 *   **Runtime:** `v2-alpha-tpuv6e` for Flex-start / Queued Resources.
 *   **Networking:** Private Google Access must be enabled for internal connectivity, or direct internet access for Hugging Face downloads.
 
@@ -33,12 +33,12 @@ The agent relies on several Google Cloud services and Python libraries:
 ### 3. Environment Variables
 You can configure the following variables for the MCP server:
 *   `GOOGLE_CLOUD_PROJECT`: Your GCP Project ID (defaults to `aisprint-491218`).
-*   `MODEL_NAME`: The model identifier used by vLLM (defaults to `google/gemma-4-31B-it`).
+*   `MODEL_NAME`: The model identifier used by vLLM (defaults to `google/gemma-4-26B-A4B-it`).
 
 ## Technical Standards
 -   **vLLM API:** OpenAI-compatible endpoint at `/v1/chat/completions`.
 -   **Optimization Flags:**
-    -   `--tensor-parallel-size 4`
+    -   `--tensor-parallel-size 8`
     -   `--max-model-len 16384`
     -   `--disable_chunked_mm_input`
     -   `--max_num_batched_tokens 4096` (required for multimodal compatibility)

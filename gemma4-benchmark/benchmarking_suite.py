@@ -90,7 +90,7 @@ class vLLMBenchmarkSuite:
 async def main():
     parser = argparse.ArgumentParser(description="Gemma 4 TPU Benchmarking Suite")
     parser.add_argument("--url", type=str, required=True, help="vLLM Endpoint URL (e.g. http://IP:8000)")
-    parser.add_argument("--model", type=str, default="google/gemma-4-31B-it")
+    parser.add_argument("--model", type=str, default="google/gemma-4-26B-A4B-it")
     parser.add_argument("--requests", type=int, default=20, help="Requests per sweep")
     parser.add_argument("--tokens", type=int, default=128, help="Max tokens per request")
     parser.add_argument("--output", type=str, default="benchmark_results.csv")

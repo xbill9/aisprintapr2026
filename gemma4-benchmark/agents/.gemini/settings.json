@@ -7,7 +7,7 @@
       ],
       "env": {
         "GOOGLE_CLOUD_PROJECT": "aisprint-491218",
-        "MODEL_NAME": "google/gemma-4-31B-it"
+        "MODEL_NAME": "google/gemma-4-26B-A4B-it"
       }
     }
   }

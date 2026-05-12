@@ -1,0 +1,89 @@
+timestamp,model,prompt_tokens,concurrency,avg_ttft,batch_duration,prefill_tps,status,error
+2026-05-11T16:42:40.667312,google/gemma-4-26B-A4B-it,1024,1,2.3053503740229644,2.3072816919884644,443.8123023970667,success,
+2026-05-11T16:42:43.621408,google/gemma-4-26B-A4B-it,2048,1,2.953036224003881,2.9539018030045554,693.320271485288,success,
+2026-05-11T16:42:45.293074,google/gemma-4-26B-A4B-it,4096,1,1.6703391050104983,1.6715346410055645,2450.442784443834,success,
+2026-05-11T16:42:45.906398,google/gemma-4-26B-A4B-it,8192,1,0.6125954539747909,0.6130752770113759,13362.143780996072,success,
+2026-05-11T16:42:46.546677,google/gemma-4-26B-A4B-it,16384,1,0.6395362729672343,0.6401871750131249,25592.515188490146,success,
+2026-05-11T16:42:47.821628,google/gemma-4-26B-A4B-it,32768,1,1.2740664199809544,1.2748172180145048,25704.077052736488,success,
+2026-05-11T16:42:48.793248,google/gemma-4-26B-A4B-it,65536,1,,,0.0,failed,"All 1 requests failed. First error: Status 400: {""error"":{""message"":""This model's maximum context length is 65536 tokens. However, you requested 1 o"
+2026-05-11T16:42:50.038233,google/gemma-4-26B-A4B-it,131072,1,,,0.0,failed,"All 1 requests failed. First error: Status 400: {""error"":{""message"":""This model's maximum context length is 65536 tokens. However, you requested 1 o"
+2026-05-11T16:42:50.357417,google/gemma-4-26B-A4B-it,1024,2,0.3129342485044617,0.3150253979838453,6501.063130487729,success,
+2026-05-11T16:42:50.680181,google/gemma-4-26B-A4B-it,2048,2,0.32032438850728795,0.3226660329964943,12694.239805664645,success,
+2026-05-11T16:42:51.154901,google/gemma-4-26B-A4B-it,4096,2,0.4724186575040221,0.4746279760147445,17259.83383614436,success,
+2026-05-11T16:42:51.761197,google/gemma-4-26B-A4B-it,8192,2,0.5989917580154724,0.6061927509726956,27027.706902978083,success,
+2026-05-11T16:42:52.436336,google/gemma-4-26B-A4B-it,16384,2,0.6676506680087186,0.6750093639711849,48544.5117490234,success,
+2026-05-11T16:42:53.342569,google/gemma-4-26B-A4B-it,32768,2,0.8923034589970484,0.905927850981243,72341.30171515934,success,
+2026-05-11T16:42:54.438223,google/gemma-4-26B-A4B-it,65536,2,,,0.0,failed,"All 2 requests failed. First error: Status 400: {""error"":{""message"":""This model's maximum context length is 65536 tokens. However, you requested 1 o"
+2026-05-11T16:42:55.957879,google/gemma-4-26B-A4B-it,131072,2,,,0.0,failed,"All 2 requests failed. First error: Status 400: {""error"":{""message"":""This model's maximum context length is 65536 tokens. However, you requested 1 o"
+2026-05-11T16:43:03.730576,google/gemma-4-26B-A4B-it,1024,4,7.762731074995827,7.765109047002625,527.4877629157157,success,
+2026-05-11T16:43:07.955337,google/gemma-4-26B-A4B-it,2048,4,3.185022251753253,4.224613728001714,1939.1121952053356,success,
+2026-05-11T16:43:12.622601,google/gemma-4-26B-A4B-it,4096,4,4.665564541006461,4.667132486996707,3510.5067288422065,success,
+2026-05-11T16:43:17.898403,google/gemma-4-26B-A4B-it,8192,4,5.085606783002731,5.275698928977363,6211.120164575374,success,
+2026-05-11T16:43:24.045582,google/gemma-4-26B-A4B-it,16384,4,5.952722964502755,6.1469505240092985,10661.54668791033,success,
+2026-05-11T16:43:30.313121,google/gemma-4-26B-A4B-it,32768,4,6.067191293492215,6.267104004044086,20914.28511724408,success,
+2026-05-11T16:43:35.764319,google/gemma-4-26B-A4B-it,65536,4,,,0.0,failed,"All 4 requests failed. First error: Status 400: {""error"":{""message"":""This model's maximum context length is 65536 tokens. However, you requested 1 o"
+2026-05-11T16:43:41.206171,google/gemma-4-26B-A4B-it,131072,4,,,0.0,failed,"All 4 requests failed. First error: Status 400: {""error"":{""message"":""This model's maximum context length is 65536 tokens. However, you requested 1 o"
+2026-05-11T16:43:47.198989,google/gemma-4-26B-A4B-it,1024,8,5.985151307002525,5.989714139024727,1367.6779575550595,success,
+2026-05-11T16:43:53.290593,google/gemma-4-26B-A4B-it,2048,8,6.086594474254525,6.091407598985825,2689.6903111077013,success,
+2026-05-11T16:43:59.448195,google/gemma-4-26B-A4B-it,4096,8,6.07190851487394,6.157477094966453,5321.660071912704,success,
+2026-05-11T16:44:00.223469,google/gemma-4-26B-A4B-it,8192,8,0.7492737028733245,0.775157774973195,84545.36884735012,success,
+2026-05-11T16:44:01.130027,google/gemma-4-26B-A4B-it,16384,8,0.8279554430046119,0.9063511520507745,144615.03105438457,success,
+2026-05-11T16:44:02.508203,google/gemma-4-26B-A4B-it,32768,8,1.2373013161268318,1.377875050995499,190252.37434309008,success,
+2026-05-11T16:44:04.295857,google/gemma-4-26B-A4B-it,65536,8,,,0.0,failed,"All 8 requests failed. First error: Status 400: {""error"":{""message"":""This model's maximum context length is 65536 tokens. However, you requested 1 o"
+2026-05-11T16:44:07.283294,google/gemma-4-26B-A4B-it,131072,8,,,0.0,failed,"All 8 requests failed. First error: Status 400: {""error"":{""message"":""This model's maximum context length is 65536 tokens. However, you requested 1 o"
+2026-05-11T16:44:07.699829,google/gemma-4-26B-A4B-it,1024,16,0.3995186361280503,0.41392593894852325,39581.96010044577,success,
+2026-05-11T16:44:08.106782,google/gemma-4-26B-A4B-it,2048,16,0.37465050556420465,0.4067942370311357,80551.78027876526,success,
+2026-05-11T16:44:08.736673,google/gemma-4-26B-A4B-it,4096,16,0.5946010175539413,0.6297576489741914,104065.42914842116,success,
+2026-05-11T16:44:09.641132,google/gemma-4-26B-A4B-it,8192,16,0.843470080060797,0.9043551699724048,144934.20765648907,success,
+2026-05-11T16:44:10.862817,google/gemma-4-26B-A4B-it,16384,16,1.0928774712483573,1.2215781430131756,214594.54026689523,success,
+2026-05-11T16:44:12.866781,google/gemma-4-26B-A4B-it,32768,16,1.7877870403171983,2.003820100973826,261644.24627999493,success,
+2026-05-11T16:44:15.598474,google/gemma-4-26B-A4B-it,65536,16,,,0.0,failed,"All 16 requests failed. First error: Status 400: {""error"":{""message"":""This model's maximum context length is 65536 tokens. However, you requested 1 o"
+2026-05-11T16:44:20.622889,google/gemma-4-26B-A4B-it,131072,16,,,0.0,failed,"All 16 requests failed. First error: Status 400: {""error"":{""message"":""This model's maximum context length is 65536 tokens. However, you requested 1 o"
+2026-05-11T16:44:21.076746,google/gemma-4-26B-A4B-it,1024,32,0.42153414156200597,0.4508631119970232,72678.37870980304,success,
+2026-05-11T16:44:21.580449,google/gemma-4-26B-A4B-it,2048,32,0.44472906258852163,0.5035662020090967,130143.76210819668,success,
+2026-05-11T16:44:22.391912,google/gemma-4-26B-A4B-it,4096,32,0.7712209506244108,0.8113104379735887,161555.91480787395,success,
+2026-05-11T16:44:23.594129,google/gemma-4-26B-A4B-it,8192,32,1.0358838824104168,1.2021059319959022,218070.6317327229,success,
+2026-05-11T16:44:25.510782,google/gemma-4-26B-A4B-it,16384,32,1.8496157996851252,1.9165164799778722,273563.0011415573,success,
+2026-05-11T16:44:28.868946,google/gemma-4-26B-A4B-it,32768,32,3.2258498845658323,3.3580249489750713,312259.74075030145,success,
+2026-05-11T16:44:33.492131,google/gemma-4-26B-A4B-it,65536,32,,,0.0,failed,"All 32 requests failed. First error: Status 400: {""error"":{""message"":""This model's maximum context length is 65536 tokens. However, you requested 1 o"
+2026-05-11T16:44:42.495242,google/gemma-4-26B-A4B-it,131072,32,,,0.0,failed,"All 32 requests failed. First error: Status 400: {""error"":{""message"":""This model's maximum context length is 65536 tokens. However, you requested 1 o"
+2026-05-11T16:44:43.054998,google/gemma-4-26B-A4B-it,1024,64,0.4884591807203833,0.5561313480138779,117842.66474826483,success,
+2026-05-11T16:44:43.752781,google/gemma-4-26B-A4B-it,2048,64,0.5832891517193275,0.6976343699498102,187880.65159322595,success,
+2026-05-11T16:44:44.805296,google/gemma-4-26B-A4B-it,4096,64,0.895440418959879,1.0523641830077395,249100.07793193022,success,
+2026-05-11T16:44:46.524468,google/gemma-4-26B-A4B-it,8192,64,1.4209990160188681,1.719046526006423,304987.67314808624,success,
+2026-05-11T16:44:49.389718,google/gemma-4-26B-A4B-it,16384,64,2.321957100846703,2.8651332880253904,365978.08708671416,success,
+2026-05-11T16:44:54.679313,google/gemma-4-26B-A4B-it,32768,64,4.274628469234813,5.289462904038373,396477.30555003544,success,
+2026-05-11T16:45:03.048260,google/gemma-4-26B-A4B-it,65536,64,,,0.0,failed,"All 64 requests failed. First error: Status 400: {""error"":{""message"":""This model's maximum context length is 65536 tokens. However, you requested 1 o"
+2026-05-11T16:45:19.881789,google/gemma-4-26B-A4B-it,131072,64,,,0.0,failed,"All 64 requests failed. First error: Status 400: {""error"":{""message"":""This model's maximum context length is 65536 tokens. However, you requested 1 o"
+2026-05-11T16:45:21.052154,google/gemma-4-26B-A4B-it,1024,128,0.8475056499710263,1.168639281007927,112157.79080004324,success,
+2026-05-11T16:45:22.087737,google/gemma-4-26B-A4B-it,2048,128,0.7588976178490157,1.035426866961643,253174.80969876263,success,
+2026-05-11T16:45:23.769253,google/gemma-4-26B-A4B-it,4096,128,1.2053131452380512,1.6813923349836841,311817.76501026313,success,
+2026-05-11T16:45:26.427589,google/gemma-4-26B-A4B-it,8192,128,1.9217229323116953,2.658201376965735,394468.23295115476,success,
+2026-05-11T16:45:31.317402,google/gemma-4-26B-A4B-it,16384,128,3.283082652446865,4.889642647991423,428896.7826435072,success,
+2026-05-11T16:45:40.082495,google/gemma-4-26B-A4B-it,32768,128,5.997691961820692,8.764906045049429,478533.8232312274,success,
+2026-05-11T16:45:48.636892,google/gemma-4-26B-A4B-it,65536,128,,,0.0,failed,"All 128 requests failed. First error: Status 400: {""error"":{""message"":""This model's maximum context length is 65536 tokens. However, you requested 1 o"
+2026-05-11T16:45:49.167496,google/gemma-4-26B-A4B-it,131072,128,,,0.0,failed,All 128 requests failed. First error: All connection attempts failed
+2026-05-11T16:45:50.265006,google/gemma-4-26B-A4B-it,1024,256,,,0.0,failed,All 256 requests failed. First error: All connection attempts failed
+2026-05-11T16:45:54.424135,google/gemma-4-26B-A4B-it,2048,256,,,0.0,failed,All 256 requests failed. First error: All connection attempts failed
+2026-05-11T16:45:55.435169,google/gemma-4-26B-A4B-it,4096,256,,,0.0,failed,All 256 requests failed. First error: All connection attempts failed
+2026-05-11T16:45:56.501641,google/gemma-4-26B-A4B-it,8192,256,,,0.0,failed,All 256 requests failed. First error: All connection attempts failed
+2026-05-11T16:45:57.600511,google/gemma-4-26B-A4B-it,16384,256,,,0.0,failed,All 256 requests failed. First error: All connection attempts failed
+2026-05-11T16:45:58.700449,google/gemma-4-26B-A4B-it,32768,256,,,0.0,failed,All 256 requests failed. First error: All connection attempts failed
+2026-05-11T16:45:59.897327,google/gemma-4-26B-A4B-it,65536,256,,,0.0,failed,All 256 requests failed. First error: All connection attempts failed
+2026-05-11T16:46:01.263669,google/gemma-4-26B-A4B-it,131072,256,,,0.0,failed,All 256 requests failed. First error: All connection attempts failed
+2026-05-11T16:46:05.877373,google/gemma-4-26B-A4B-it,1024,512,,,0.0,failed,All 512 requests failed. First error: All connection attempts failed
+2026-05-11T16:46:10.556940,google/gemma-4-26B-A4B-it,2048,512,,,0.0,failed,All 512 requests failed. First error: All connection attempts failed
+2026-05-11T16:46:15.297679,google/gemma-4-26B-A4B-it,4096,512,,,0.0,failed,All 512 requests failed. First error: All connection attempts failed
+2026-05-11T16:46:19.871195,google/gemma-4-26B-A4B-it,8192,512,,,0.0,failed,All 512 requests failed. First error: All connection attempts failed
+2026-05-11T16:46:24.562951,google/gemma-4-26B-A4B-it,16384,512,,,0.0,failed,All 512 requests failed. First error: All connection attempts failed
+2026-05-11T16:46:29.328459,google/gemma-4-26B-A4B-it,32768,512,,,0.0,failed,All 512 requests failed. First error: All connection attempts failed
+2026-05-11T16:46:34.157893,google/gemma-4-26B-A4B-it,65536,512,,,0.0,failed,All 512 requests failed. First error: All connection attempts failed
+2026-05-11T16:46:39.424714,google/gemma-4-26B-A4B-it,131072,512,,,0.0,failed,All 512 requests failed. First error: All connection attempts failed
+2026-05-11T16:46:59.625096,google/gemma-4-26B-A4B-it,1024,1024,,,0.0,failed,All 1024 requests failed. First error: All connection attempts failed
+2026-05-11T16:47:19.460260,google/gemma-4-26B-A4B-it,2048,1024,,,0.0,failed,All 1024 requests failed. First error: All connection attempts failed
+2026-05-11T16:47:39.428020,google/gemma-4-26B-A4B-it,4096,1024,,,0.0,failed,All 1024 requests failed. First error: All connection attempts failed
+2026-05-11T16:47:59.328104,google/gemma-4-26B-A4B-it,8192,1024,,,0.0,failed,All 1024 requests failed. First error: All connection attempts failed
+2026-05-11T16:48:19.801326,google/gemma-4-26B-A4B-it,16384,1024,,,0.0,failed,All 1024 requests failed. First error: All connection attempts failed
+2026-05-11T16:48:40.006303,google/gemma-4-26B-A4B-it,32768,1024,,,0.0,failed,All 1024 requests failed. First error: All connection attempts failed
+2026-05-11T16:49:00.969891,google/gemma-4-26B-A4B-it,65536,1024,,,0.0,failed,All 1024 requests failed. First error: All connection attempts failed
+2026-05-11T16:49:22.503708,google/gemma-4-26B-A4B-it,131072,1024,,,0.0,failed,All 1024 requests failed. First error: All connection attempts failed

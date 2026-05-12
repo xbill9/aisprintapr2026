@@ -20,7 +20,7 @@ steps:
       - 'managed'
       - '--allow-unauthenticated'
       - '--set-env-vars'
-      - 'GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_ZONE=southamerica-east1-c,GOOGLE_CLOUD_REGION=southamerica-east1,MODEL_NAME=google/gemma-4-31B-it'
+      - 'GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_ZONE=southamerica-east1-c,GOOGLE_CLOUD_REGION=southamerica-east1,MODEL_NAME=google/gemma-4-26B-A4B-it'
 
 # Automatically push the image built in the first step
 images:

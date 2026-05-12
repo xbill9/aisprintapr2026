@@ -28,7 +28,8 @@ docker run --privileged --runtime=tpu --network=host
     --model {model_name} 
     --host 0.0.0.0 
     --port 8000 
-    --tensor-parallel-size 4 
+    --tensor-parallel-size {tensor_parallel_size} 
+    --dtype bf16 
     --max-model-len 16384 
     --disable-chunked-mm-input 
     --max-num_batched_tokens 4096 

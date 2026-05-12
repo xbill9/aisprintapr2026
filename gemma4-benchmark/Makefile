@@ -4,7 +4,7 @@ REGION ?= us-central1
 ZONE ?= $(REGION)-a
 BUCKET_NAME ?= $(PROJECT_ID)-bucket
 SERVICE_NAME ?= vllm-gemma-4-tpu
-MODEL_PATH ?= google/gemma-4-31B-it
+MODEL_PATH ?= google/gemma-4-26B-A4B-it
 
 install:
 	pip install -r requirements.txt
@@ -47,7 +47,7 @@ run-container:
 	@echo "    vllm/vllm-tpu:gemma4 \\"
 	@echo "    vllm serve $(MODEL_PATH) \\"
 	@echo "    --max-model-len 16384 \\"
-	@echo "    --tensor-parallel-size 4 \\"
+	@echo "    --tensor-parallel-size 8 \\"
 	@echo "    --disable_chunked_mm_input \\"
 	@echo "    --enable-auto-tool-choice \\"
 	@echo "    --tool-call-parser gemma4"
