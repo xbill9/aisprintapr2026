@@ -27,6 +27,7 @@ PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "aisprint-491218")
 ZONE = os.getenv("GOOGLE_CLOUD_ZONE", "southamerica-east1-c")
 REGION = os.getenv("GOOGLE_CLOUD_REGION", "southamerica-east1")
 MODEL_NAME = "google/gemma-4-26B-A4B-it"
+ASSISTANT_MODEL_NAME = "google/gemma-4-26B-A4B-it-assistant"
 HF_SECRET_ID = "hf-token"
 ACCELERATOR_TYPE = os.getenv("ACCELERATOR_TYPE", "v6e-4")
 TENSOR_PARALLEL_SIZE = int(os.getenv("TENSOR_PARALLEL_SIZE", "4"))
@@ -341,13 +342,15 @@ async def manage_vllm_docker(resource_id: str = "vllm-gemma4-q4", action: str = 
 
     # Use the nightly image for latest fixes
     docker_image = "vllm/vllm-tpu:nightly"
+    speculative_config = '{"method": "ngram", "num_speculative_tokens": 3}'
     docker_run_cmd = (
         f"sudo docker run --name vllm-gemma4 --privileged --net=host -d "
         f"-v /dev/shm:/dev/shm --shm-size 10gb "
         f"-e HF_HOME=/dev/shm -e HF_TOKEN=$(gcloud secrets versions access latest --secret=hf-token) "
-        f"{docker_image} vllm serve --host 0.0.0.0 --port 8000 {MODEL_NAME} "
-        f"--max-model-len 16384 --dtype bf16 --tensor-parallel-size {TENSOR_PARALLEL_SIZE} --disable_chunked_mm_input "
-        f"--max_num_batched_tokens 4096 --enable-auto-tool-choice --tool-call-parser gemma4 --reasoning-parser gemma4"
+        f"{docker_image} /bin/bash -c 'pip install git+https://github.com/huggingface/transformers.git && vllm serve --host 0.0.0.0 --port 8000 {MODEL_NAME} "
+        f"--max-model-len 32768 --dtype bfloat16 --tensor-parallel-size {TENSOR_PARALLEL_SIZE} --disable_chunked_mm_input "
+        f"--trust-remote-code --speculative-config \"{speculative_config}\" "
+        f"--max-num_batched_tokens 4096 --enable-auto-tool-choice --tool-call-parser gemma4 --reasoning-parser gemma4'"
     )
 
     commands = {
@@ -618,7 +621,7 @@ async def query_queued_gemma4_with_stats(prompt: str) -> str:
 async def run_vllm_benchmark(
     resource_id: str = "vllm-gemma4-q4",
     backend: str = "vllm",
-    model: str = "google/gemma-4-26B-A4B-it",
+    model: str = "google/gemma-4-26B-A4B-it-assistant",
     dataset_name: str = "random",
     num_prompts: int = 100,
     random_input_len: int = 1024,
@@ -677,7 +680,7 @@ async def run_context_benchmark(
     max_context: int = 16384,
     steps: int = 10,
     concurrency: str = "1",
-    model: str = "google/gemma-4-26B-A4B-it",
+    model: str = "google/gemma-4-26B-A4B-it-assistant",
 ) -> str:
     """
     Runs a benchmark across varying prompt lengths up to the maximum context.

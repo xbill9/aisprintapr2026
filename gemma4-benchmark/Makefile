@@ -4,7 +4,7 @@ REGION ?= us-central1
 ZONE ?= $(REGION)-a
 BUCKET_NAME ?= $(PROJECT_ID)-bucket
 SERVICE_NAME ?= vllm-gemma-4-tpu
-MODEL_PATH ?= google/gemma-4-26B-A4B-it
+MODEL_PATH ?= google/gemma-4-26B-A4B-it-assistant
 
 install:
 	pip install -r requirements.txt

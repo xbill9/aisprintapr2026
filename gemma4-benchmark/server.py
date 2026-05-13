@@ -27,6 +27,7 @@ PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "aisprint-491218")
 ZONE = os.getenv("GOOGLE_CLOUD_ZONE", "southamerica-east1-c")
 REGION = os.getenv("GOOGLE_CLOUD_REGION", "southamerica-east1")
 MODEL_NAME = "google/gemma-4-26B-A4B-it"
+ASSISTANT_MODEL_NAME = "google/gemma-4-26B-A4B-it-assistant"
 HF_SECRET_ID = "hf-token"
 ACCELERATOR_TYPE = os.getenv("ACCELERATOR_TYPE", "v6e-4")
 TENSOR_PARALLEL_SIZE = int(os.getenv("TENSOR_PARALLEL_SIZE", "4"))
@@ -175,7 +176,7 @@ async def verify_model_health() -> str:
         start_time = time.monotonic()
         chat_completion = await client.chat.completions.create(
             messages=[{"role": "user", "content": "Hello, is the model working?"}],
-            model="google/gemma-4-26B-A4B-it",
+            model="google/gemma-4-26B-A4B-it-assistant",
             max_tokens=10,
         )
         end_time = time.monotonic()
@@ -294,7 +295,7 @@ async def manage_queued_resource(resource_id: str = "vllm-gemma4-q4") -> str:
         if not token:
             return "❌ Aborted: 'hf-token' secret missing."
 
-        startup_script_content = await _get_formatted_startup_script("google/gemma-4-26B-A4B-it", token)
+        startup_script_content = await _get_formatted_startup_script(MODEL_NAME, token)
         script_file = "temp_startup_script.sh"
         with open(script_file, "w") as f:
             f.write(startup_script_content)
@@ -341,14 +342,16 @@ async def manage_vllm_docker(resource_id: str = "vllm-gemma4-q4", action: str = 
 
     # Use the nightly image for latest fixes
     docker_image = "vllm/vllm-tpu:nightly"
+    speculative_config = '{"method": "ngram", "num_speculative_tokens": 3}'
     docker_run_cmd = (
         f"sudo docker run --name vllm-gemma4 --privileged --net=host -d "
         f"-v /dev/shm:/dev/shm --shm-size 10gb "
         f"-e HF_HOME=/dev/shm -e HF_TOKEN=$(gcloud secrets versions access latest --secret=hf-token) "
-        f"{docker_image} vllm serve google/gemma-4-26B-A4B-it "
-        f"--tensor-parallel-size {TENSOR_PARALLEL_SIZE} --dtype bfloat16 --disable_chunked_mm_input --max_model_len 131072 "
-        f"--max-num_batched_tokens 4096 --enable-auto-tool-choice --tool-call-parser gemma4 --reasoning-parser gemma4 "
-        f'--limit-mm-per-prompt \'{{"image":4,"audio":1}}\''
+        f"{docker_image} /bin/bash -c 'pip install git+https://github.com/huggingface/transformers.git && vllm serve {MODEL_NAME} "
+        f"--tensor-parallel-size {TENSOR_PARALLEL_SIZE} --dtype bfloat16 --disable_chunked_mm_input --max_model_len 32768 "
+        f"--trust-remote-code --speculative-config \"{speculative_config}\" --max-num_batched_tokens 4096 "
+        f"--enable-auto-tool-choice --tool-call-parser gemma4 --reasoning-parser gemma4 "
+        f'--limit-mm-per-prompt \'{{"image":4,"audio":1}}\'\''
     )
 
     commands = {
@@ -544,7 +547,7 @@ async def query_queued_gemma4(prompt: str) -> str:
         client = await get_vllm_client()
         chat_completion = await client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
-            model="google/gemma-4-26B-A4B-it",
+            model="google/gemma-4-26B-A4B-it-assistant",
         )
         response = chat_completion.choices[0].message.content or "No response from model."
         logger.info(f"Model response: '{response[:100]}...'")
@@ -576,7 +579,7 @@ async def query_queued_gemma4_with_stats(prompt: str) -> str:
 
         stream = await client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
-            model="google/gemma-4-26B-A4B-it",
+            model="google/gemma-4-26B-A4B-it-assistant",
             stream=True,
         )
 
@@ -619,7 +622,7 @@ async def query_queued_gemma4_with_stats(prompt: str) -> str:
 async def run_vllm_benchmark(
     resource_id: str = "vllm-gemma4-q4",
     backend: str = "vllm",
-    model: str = "google/gemma-4-26B-A4B-it",
+    model: str = "google/gemma-4-26B-A4B-it-assistant",
     dataset_name: str = "random",
     num_prompts: int = 100,
     random_input_len: int = 1024,
@@ -678,7 +681,7 @@ async def run_context_benchmark(
     max_context: int = 16384,
     steps: int = 10,
     concurrency: str = "1",
-    model: str = "google/gemma-4-26B-A4B-it",
+    model: str = "google/gemma-4-26B-A4B-it-assistant",
 ) -> str:
     """
     Runs a benchmark across varying prompt lengths up to the maximum context.

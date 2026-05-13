@@ -81,7 +81,7 @@ class ContextBenchmark:
 async def main():
     parser = argparse.ArgumentParser(description="Gemma 4 Comprehensive Benchmark")
     parser.add_argument("--url", type=str, required=True, help="vLLM Endpoint URL")
-    parser.add_argument("--model", type=str, default="google/gemma-4-26B-A4B-it")
+    parser.add_argument("--model", type=str, default="google/gemma-4-26B-A4B-it-assistant")
     parser.add_argument("--output", type=str, default="comprehensive_benchmark_results.csv")
     args = parser.parse_args()
 

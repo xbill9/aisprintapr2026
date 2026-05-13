@@ -19,20 +19,23 @@ sudo usermod -aG docker $USER
 docker pull vllm/vllm-tpu:nightly
 
 # Start vLLM server
-docker run --privileged --runtime=tpu --network=host 
-    -e HUGGING_FACE_HUB_TOKEN={hf_token} 
-    -v /usr/share/tpu:/usr/share/tpu 
-    -p 8000:8000 
-    vllm/vllm-tpu:nightly 
-    python -m vllm.entrypoints.openai.api_server 
-    --model {model_name} 
-    --host 0.0.0.0 
-    --port 8000 
-    --tensor-parallel-size {tensor_parallel_size} 
-    --dtype bf16 
-    --max-model-len 16384 
-    --disable-chunked-mm-input 
-    --max-num_batched_tokens 4096 
-    --enable-auto-tool-choice 
-    --tool-call-parser gemma4 
-    --reasoning-parser gemma4
+docker run --privileged --runtime=tpu --network=host \
+    -e HUGGING_FACE_HUB_TOKEN={hf_token} \
+    -v /usr/share/tpu:/usr/share/tpu \
+    -p 8000:8000 \
+    vllm/vllm-tpu:nightly \
+    /bin/bash -c "pip install git+https://github.com/huggingface/transformers.git && python -m vllm.entrypoints.openai.api_server \
+    --model {model_name} \
+    --host 0.0.0.0 \
+    --port 8000 \
+    --tensor-parallel-size {tensor_parallel_size} \
+    --dtype bfloat16 \
+    --max-model-len 32768 \
+    --disable-chunked-mm-input \
+    --trust-remote-code \
+    --speculative-config '{"method": "ngram", "num_speculative_tokens": 3}' \
+    --max-num_batched_tokens 4096 \
+
+    --enable-auto-tool-choice \
+    --tool-call-parser gemma4 \
+    --reasoning-parser gemma4"

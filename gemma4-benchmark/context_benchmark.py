@@ -128,7 +128,7 @@ class ContextBenchmark:
 async def main():
     parser = argparse.ArgumentParser(description="Gemma 4 Context Length Benchmark")
     parser.add_argument("--url", type=str, required=True, help="vLLM Endpoint URL")
-    parser.add_argument("--model", type=str, default="google/gemma-4-26B-A4B-it")
+    parser.add_argument("--model", type=str, default="google/gemma-4-26B-A4B-it-assistant")
     parser.add_argument("--max-context", type=int, default=16384, help="Max context length to test")
     parser.add_argument("--steps", type=int, default=10, help="Number of steps")
     parser.add_argument("--concurrency", type=str, default="1", help="Comma-separated list of concurrent requests")
