@@ -347,10 +347,14 @@ async def manage_vllm_docker(resource_id: str = "vllm-gemma4-q4", action: str = 
         f"sudo docker run --name vllm-gemma4 --privileged --net=host -d "
         f"-v /dev/shm:/dev/shm --shm-size 10gb "
         f"-e HF_HOME=/dev/shm -e HF_TOKEN=$(gcloud secrets versions access latest --secret=hf-token) "
+        f"-e VLLM_TPU_BUCKET_PADDING_GAP=512 "
+        f"-e VLLM_XLA_CACHE_PATH=/dev/shm/vllm_cache "
         f"{docker_image} /bin/bash -c 'pip install git+https://github.com/huggingface/transformers.git && vllm serve --host 0.0.0.0 --port 8000 {MODEL_NAME} "
-        f"--max-model-len 32768 --dtype bfloat16 --tensor-parallel-size {TENSOR_PARALLEL_SIZE} --disable_chunked_mm_input "
+        f"--max-model-len 16384 --dtype bfloat16 --kv-cache-dtype fp8 --gpu-memory-utilization 0.90 --block-size 32 --disable_chunked_mm_input --tensor-parallel-size {TENSOR_PARALLEL_SIZE} "
         f"--trust-remote-code --speculative-config \"{speculative_config}\" "
-        f"--max-num_batched_tokens 4096 --enable-auto-tool-choice --tool-call-parser gemma4 --reasoning-parser gemma4'"
+        f"--max-num_batched_tokens 4096 --enable-auto-tool-choice --tool-call-parser gemma4 --reasoning-parser gemma4 "
+        f"--enable-prefix-caching --max-num-seqs 256 "
+        f'--limit-mm-per-prompt \'{{"image":4,"audio":1}}\' --safetensors-load-strategy prefetch\''
     )
 
     commands = {

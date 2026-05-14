@@ -21,6 +21,7 @@ docker pull vllm/vllm-tpu:nightly
 # Start vLLM server
 docker run --privileged --runtime=tpu --network=host \
     -e HUGGING_FACE_HUB_TOKEN={hf_token} \
+    -e VLLM_TPU_BUCKET_PADDING_GAP=256 \
     -v /usr/share/tpu:/usr/share/tpu \
     -p 8000:8000 \
     vllm/vllm-tpu:nightly \
@@ -30,12 +31,15 @@ docker run --privileged --runtime=tpu --network=host \
     --port 8000 \
     --tensor-parallel-size {tensor_parallel_size} \
     --dtype bfloat16 \
+    --kv-cache-dtype fp8 \
     --max-model-len 32768 \
     --disable-chunked-mm-input \
     --trust-remote-code \
     --speculative-config '{"method": "ngram", "num_speculative_tokens": 3}' \
-    --max-num_batched_tokens 4096 \
-
+    --max-num-batched-tokens 4096 \
+    --enable-prefix-caching \
+    --max-num-seqs 2048 \
+    --limit-mm-per-prompt '{"image":4,"audio":1}' \
     --enable-auto-tool-choice \
     --tool-call-parser gemma4 \
     --reasoning-parser gemma4"

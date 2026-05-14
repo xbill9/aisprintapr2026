@@ -30,7 +30,7 @@ To deploy and run this project, you need to address two main components: the **I
 The MCP server expects a running vLLM instance. Your TPU deployment for the model needs:
 *   **Hardware:** Cloud TPU v6e (Trillium) 
 *   **Software:** `vllm/vllm-tpu:nightly` specialized container (v0.19.2+ recommended for Gemma 4 fixes).
-*   **Model:** `google/gemma-4-26B-A4B-it-assistant` (Hugging Face ID).
+*   **Model:** `google/gemma-4-26B-A4B-it` (Full MoE) is preferred for production; `google/gemma-4-26B-A4B-it-assistant` can be used for lightweight testing.
 *   **Runtime:** `v2-alpha-tpuv6e` for Flex-start / Queued Resources.
 *   **Networking:** Private Google Access must be enabled for internal connectivity, or direct internet access for Hugging Face downloads.
 
@@ -45,15 +45,25 @@ The agent relies on several Google Cloud services and Python libraries:
 ### 3. Environment Variables
 You can configure the following variables for the MCP server:
 *   `GOOGLE_CLOUD_PROJECT`: Your GCP Project ID (defaults to `aisprint-491218`).
-*   `MODEL_NAME`: The model identifier used by vLLM (defaults to `google/gemma-4-26B-A4B-it-assistant`).
+*   `MODEL_NAME`: The model identifier used by vLLM (defaults to `google/gemma-4-26B-A4B-it`).
+*   `VLLM_TPU_BUCKET_PADDING_GAP`: Set to `512` for optimized memory management on Trillium.
+*   `VLLM_XLA_CACHE_PATH`: Set to `/dev/shm/vllm_cache` to persist JAX compilation across restarts.
 
 ## Technical Standards
 -   **vLLM API:** OpenAI-compatible endpoint at `/v1/chat/completions`.
--   **Optimization Flags:**
-    -   `--tensor-parallel-size 8`
-    -   `--max-model-len 16384`
+-   **Optimization Flags (Gemma 4 MoE Production - Turbo-Stable):**
+    -   `--tensor-parallel-size 8` (for v6e-8) or `4` (for v6e-4)
+    -   `--dtype bfloat16`
+    -   `--kv-cache-dtype fp8`
+    -   `--gpu-memory-utilization 0.90` (Reserved headroom for compilation)
+    -   `--block-size 32` (SMEM optimization)
+    -   `--max-model-len 16384` (Stable limit for MoE on v6e-4)
     -   `--disable_chunked_mm_input`
-    -   `--max_num_batched_tokens 4096` (required for multimodal compatibility)
+    -   `--max_num_batched_tokens 4096`
+    -   `--speculative-config '{"method": "ngram", "num_speculative_tokens": 3}'`
+    -   `--enable-prefix-caching`
+    -   `--max-num-seqs 256` (Prevents compilation OOM)
+    -   `--safetensors-load-strategy prefetch`
     -   `--limit-mm-per-prompt '{"image":4,"audio":1}'` (JSON format required in nightly)
 -   **Tooling:** Enable `--enable-auto-tool-choice`, `--tool-call-parser gemma4`, and `--reasoning-parser gemma4`.
 -   **Image:** `vllm/vllm-tpu:nightly` (v0.19.2+ recommended) is preferred for stable Gemma 4 support.
@@ -100,7 +110,7 @@ Create this file to map the Gemini model names used by the CLI to your TPU endpo
 model_list:
   - model_name: "gemma4-tpu"
     litellm_params:
-      model: "openai/google/gemma-4-26B-A4B-it-assistant" # Tell LiteLLM it's an OpenAI-style endpoint
+      model: "openai/google/gemma-4-26B-A4B-it" # Tell LiteLLM it's an OpenAI-style endpoint
       api_base: "http://YOUR_TPU_IP_ADDRESS:8000/v1" # Your TPU IP
       api_key: "none" # vLLM doesn't require a key by default
     router_settings:

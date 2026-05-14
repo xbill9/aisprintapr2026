@@ -90,8 +90,8 @@ async def main():
     parser.add_argument("--output", type=str, default="user_benchmark_results.csv")
     args = parser.parse_args()
 
-    concurrencies = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
-    lengths = [128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768]
+    concurrencies = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048]
+    lengths = [8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 12288]
 
     benchmark = ContextBenchmark(args.url, args.model)
     results = []
@@ -102,7 +102,7 @@ async def main():
     print(f"👥 Concurrencies: {concurrencies}")
     
     # Use a large connection pool for high concurrency
-    limits = httpx.Limits(max_keepalive_connections=2000, max_connections=2000)
+    limits = httpx.Limits(max_keepalive_connections=4000, max_connections=4000)
     async with httpx.AsyncClient(limits=limits) as client:
         for concurrency in concurrencies:
             print(f"\n👥 Testing Concurrency: {concurrency}")

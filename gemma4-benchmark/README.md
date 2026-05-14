@@ -37,12 +37,20 @@ You can configure the following variables for the MCP server:
 
 ## Technical Standards
 -   **vLLM API:** OpenAI-compatible endpoint at `/v1/chat/completions`.
--   **Optimization Flags:**
+-   **Optimization Flags (Turbo-Stable):**
     -   `--tensor-parallel-size 8`
+    -   `--dtype bfloat16`
+    -   `--kv-cache-dtype fp8`
+    -   `--gpu-memory-utilization 0.90`
+    -   `--block-size 32`
     -   `--max-model-len 16384`
     -   `--disable_chunked_mm_input`
-    -   `--max_num_batched_tokens 4096` (required for multimodal compatibility)
-    -   `--limit-mm-per-prompt '{"image":4,"audio":1}'` (JSON format required in nightly)
+    -   `--max_num_batched_tokens 4096`
+    -   `--speculative-config '{"method": "ngram", "num_speculative_tokens": 3}'`
+    -   `--enable-prefix-caching`
+    -   `--max-num-seqs 256`
+    -   `--safetensors-load-strategy prefetch`
+    -   `--limit-mm-per-prompt '{"image":4,"audio":1}'`
 -   **Tooling:** Enable `--enable-auto-tool-choice`, `--tool-call-parser gemma4`, and `--reasoning-parser gemma4`.
 
 ## Flex-start VMs

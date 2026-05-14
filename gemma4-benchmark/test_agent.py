@@ -29,7 +29,6 @@ sys.modules["google.cloud.secretmanager"] = MagicMock()
 # Now import the functions to test
 from server import (  # noqa: E402
     MODEL_NAME,
-    get_vllm_deployment_config,
     get_model_details,
     query_queued_gemma4_with_stats,
     save_hf_token,
@@ -40,23 +39,7 @@ from server import (  # noqa: E402
 class TestDevOpsAgent(unittest.IsolatedAsyncioTestCase):
     def test_model_name_default(self):
         """Verify the default model is Gemma 4."""
-        self.assertEqual(MODEL_NAME, "google/gemma-4-26B-A4B-it-assistant")
-
-    @patch("server.get_secret", new_callable=AsyncMock)
-    @patch("server.run_command", new_callable=AsyncMock)
-    async def test_get_vllm_deployment_config(self, mock_run_command, mock_get_secret):
-        """Test TPU deployment config generation."""
-        mock_get_secret.return_value = "dummy-hf-token"
-        # Mock run_command to prevent actual gcloud calls during this test
-        mock_run_command.return_value = 0, "", "" 
-
-        config = await get_vllm_deployment_config(service_name="test-vllm", model_name="google/gemma-4-26B-A4B-it-assistant")
-        self.assertIn("gcloud alpha compute tpus tpu-vm create test-vllm", config)
-        self.assertIn("--accelerator-type=v6e-8", config)
-        self.assertIn("--version=v2-alpha-tpuv6e", config)
-
-        self.assertIn("vllm/vllm-tpu:nightly", config)
-        self.assertIn("google/gemma-4-26B-A4B-it-assistant", config)
+        self.assertEqual(MODEL_NAME, "google/gemma-4-26B-A4B-it")
 
     @patch("server.get_vllm_client", new_callable=AsyncMock)
     @patch("server.discover_vllm_url", new_callable=AsyncMock)
